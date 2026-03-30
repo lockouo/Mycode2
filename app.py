@@ -3,9 +3,9 @@ import random
 from openai import OpenAI
 
 # ==========================================
-# 1. 全局配置与绝对居中 UI 系统
+# 1. 全局配置与安全 UI 系统 (剔除危险 CSS)
 # ==========================================
-st.set_page_config(page_title="沉浸式赛博塔罗 | 终极完美版", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="沉浸式赛博塔罗 | 终极阵列版", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
@@ -13,30 +13,7 @@ st.markdown("""
     .stApp { background-color: #090a0f; color: #d1d5db; font-family: 'Times New Roman', STSong, serif; }
     h1, h2, h3 { color: #eab308 !important; text-align: center; text-shadow: 0 0 10px rgba(234, 179, 8, 0.3); }
     
-    /* 绝对物理居中所有按钮 */
-    div.stButton {
-        display: flex !important; 
-        justify-content: center !important; 
-        width: 100% !important;
-        margin-top: 10px;
-        margin-bottom: 20px;
-    }
-    div.stButton > button {
-        width: 220px !important; 
-        margin: 0 auto !important; 
-        background: transparent; border: 1px solid #eab308; color: #eab308;
-        border-radius: 4px; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;
-    }
-    div.stButton > button:hover { 
-        background: rgba(234, 179, 8, 0.1); box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); border-color: #facc15; color: #facc15; 
-    }
-
-    /* 强制所有列的内容居中排列 */
-    [data-testid="column"] {
-        display: flex; flex-direction: column; align-items: center;
-    }
-
-    /* 核心卡槽布局 */
+    /* 核心卡槽布局：确保内部元素居中 */
     .card-slot {
         display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
         width: 100%;
@@ -87,6 +64,15 @@ st.markdown("""
     .minor-img-wrapper { width: 60px; flex-shrink: 0; margin-right: 12px; perspective: 500px;}
     .minor-img-wrapper img { width: 100%; border-radius: 4px; border: 1px solid #4b5563; }
     .minor-text { font-size: 12px; line-height: 1.4; display: flex; flex-direction: column; justify-content: center;}
+    
+    /* 自定义炫酷按钮样式 */
+    div.stButton > button {
+        border: 1px solid #eab308; color: #eab308; background: rgba(234, 179, 8, 0.05);
+        font-weight: bold; letter-spacing: 1px; transition: all 0.3s ease;
+    }
+    div.stButton > button:hover {
+        background: rgba(234, 179, 8, 0.2); border-color: #facc15; color: #facc15; box-shadow: 0 0 10px rgba(234, 179, 8, 0.4);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -146,19 +132,16 @@ for suit_name, s_data in suits_info.items():
     for i, (rank_name, r_data) in enumerate(ranks_info.items()):
         full_name = f"{suit_name}{rank_name}"
         num = i + 1
-        
         if full_name == "权杖首牌":
             MINORS["权杖首牌 (Ace Of Wands)"] = {
-                "img_url": f"{BASE_IMG_URL}wa01.jpg",
-                "tags": "新行动、创造、机会、灵感、潜力、启动",
+                "img_url": f"{BASE_IMG_URL}wa01.jpg", "tags": "新行动、创造、机会、灵感、潜力、启动",
                 "elem": "火", "astro": "火象特质",
                 "up": "象征新的开始、创造力与激情迸发。代表充满潜力的新机会，鼓励勇敢探索。",
                 "rev": "能量失控导致拖延或方向错误，热情消退、资源浪费，需审视动机。"
             }
         else:
             MINORS[f"{full_name}"] = {
-                "img_url": f"{BASE_IMG_URL}{s_data['symbol']}{num:02d}.jpg",
-                "tags": f"{s_data['core']}、{r_data.split('、')[0]}",
+                "img_url": f"{BASE_IMG_URL}{s_data['symbol']}{num:02d}.jpg", "tags": f"{s_data['core']}、{r_data.split('、')[0]}",
                 "elem": s_data['elem'], "astro": f"{s_data['elem']}象",
                 "up": f"在{s_data['core']}领域，迎来【{r_data}】。建议顺势而为。",
                 "rev": f"在{s_data['elem']}元素领域，【{r_data}】表现负面效应，能量受阻。"
@@ -180,3 +163,48 @@ if 'step' not in st.session_state:
     st.session_state.deck_m = list(MAJORS.keys()); random.shuffle(st.session_state.deck_m)
     st.session_state.deck_min = list(MINORS.keys()); random.shuffle(st.session_state.deck_min)
     st.session_state.spread = {"past": {}, "present": {}, "future": {}}
+
+def draw_card(is_major):
+    return {"name": (st.session_state.deck_m if is_major else st.session_state.deck_min).pop(), "pos": random.choice(["正位", "逆位"])}
+
+def render_slot(stage_name, step_req_major, step_req_minor, state_key):
+    st.markdown(f"<h3 style='color:#f3f4f6;'>✦ {stage_name} ✦</h3>", unsafe_allow_html=True)
+    
+    # 【完美居中秘籍】：用 use_container_width=True 让按钮充满当前列，自然居中
+    if st.session_state.step < step_req_major:
+        st.markdown("""
+        <div class="card-slot">
+            <div class="tarot-frame"><div class="tarot-inner"><div class="tarot-back"></div></div></div>
+            <div style="color:#6b7280; font-size:12px; margin-top:10px; margin-bottom:10px;">[ 灵体潜伏中 ]</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.session_state.step == step_req_major - 1:
+            if st.button(f"揭开 {stage_name} 主牌", key=f"btn_m_{stage_name}", use_container_width=True):
+                st.session_state.spread[state_key]["major"] = draw_card(True)
+                st.session_state.step = step_req_major; st.rerun()
+                
+    if st.session_state.step >= step_req_major:
+        card = st.session_state.spread[state_key]["major"]
+        data = MAJORS[card["name"]]
+        rev_class = "is-reversed" if card["pos"] == "逆位" else ""
+        badge = "<div class='status-badge rev-badge'>▼ 逆位 Reversed</div>" if card["pos"] == "逆位" else "<div class='status-badge up-badge'>▲ 正位 Upright</div>"
+        meaning = data["rev"] if card["pos"] == "逆位" else data["up"]
+        p_class = "rev-panel" if card["pos"] == "逆位" else ""
+        
+        st.markdown(f"""
+        <div class="card-slot">
+            <div class="tarot-frame {rev_class}">
+                <div class="tarot-inner"><div class="tarot-front"><img src="{data['img_url']}"></div></div>
+            </div>
+            <div class="wiki-panel {p_class}">
+                <div class="wiki-title">{card["name"]}</div>
+                <div style="text-align: center;">{badge}</div>
+                <div class="wiki-row"><span class="wiki-label">元素/占星：</span><span class="wiki-highlight">{data['elem']}</span> / <span style="color:#c084fc; font-weight:bold;">{data['astro']}</span></div>
+                <div class="wiki-row"><span class="wiki-label">关键字：</span><span class="wiki-value">{data['tags']}</span></div>
+                <div class="wiki-row" style="margin-top:8px;"><span class="wiki-label">解析：</span><span class="wiki-value">{meaning}</span></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.session_state.step == step_req_minor - 1:
+            if st.button(f"启示 3张辅牌", key=f"
