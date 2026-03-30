@@ -3,15 +3,17 @@ import random
 from openai import OpenAI
 
 # ==========================================
-# 1. 全局配置与绝对居中 UI 系统
+# 1. 全局配置与像素级对齐 UI 系统
 # ==========================================
 st.set_page_config(page_title="沉浸式赛博塔罗 | 终极完美版", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
+    /* 全局暗黑神秘学风格 */
     .stApp { background-color: #090a0f; color: #d1d5db; font-family: 'Times New Roman', STSong, serif; }
     h1, h2, h3 { color: #eab308 !important; text-align: center; text-shadow: 0 0 10px rgba(234, 179, 8, 0.3); }
     
+    /* 绝对物理居中所有按钮 */
     div.stButton { display: flex !important; justify-content: center !important; width: 100% !important; margin-top: 10px; margin-bottom: 20px; }
     div.stButton > button {
         width: 220px !important; margin: 0 auto !important; 
@@ -57,19 +59,20 @@ st.markdown("""
     .wiki-value { color: #d1d5db; }
     .wiki-highlight { color: #eab308; font-weight: bold;}
     
+    /* 辅牌全新：上图下文独立卡片排版 */
     .minor-card-container {
-        display: flex; align-items: stretch; background: rgba(255,255,255,0.03); 
-        border-radius: 6px; padding: 8px; margin-bottom: 8px; border-left: 3px solid #6b7280;
-        width: 100%; max-width: 340px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: left;
+        display: flex; flex-direction: column; align-items: center; background: rgba(17, 24, 39, 0.6); 
+        border-radius: 8px; padding: 15px; margin-bottom: 15px; border-top: 3px solid #6b7280;
+        width: 100%; max-width: 340px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); text-align: left;
     }
-    .minor-img-wrapper { width: 60px; flex-shrink: 0; margin-right: 12px; perspective: 500px;}
+    .minor-img-wrapper { width: 120px; margin-bottom: 12px; perspective: 500px; box-shadow: 0 5px 15px rgba(0,0,0,0.8); border-radius: 4px;}
     .minor-img-wrapper img { width: 100%; border-radius: 4px; border: 1px solid #4b5563; }
-    .minor-text { font-size: 12px; line-height: 1.4; display: flex; flex-direction: column; justify-content: center;}
+    .minor-text { width: 100%; font-size: 13px; line-height: 1.5; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 塔罗图鉴数据库
+# 2. 塔罗图鉴数据库 (修正特殊命名规则)
 # ==========================================
 BASE_IMG_URL = "https://sacred-texts.com/tarot/pkt/img/"
 
@@ -98,48 +101,48 @@ MAJORS_DB = {
     "世界 (The World)": {"astro": "土星", "elem": "土", "tags": "圆满、达成、完美、旅程终点", "meaning": "愚者旅程的完美终点。代表目标的彻底达成、身心合一的圆满状态，以及准备开启下一个更高维度的循环。"}
 }
 
-suits_info = {
-    "权杖": {"elem": "火", "core": "行动、意志与创造力", "symbol": "wa"},
-    "圣杯": {"elem": "水", "core": "情感、潜意识与人际", "symbol": "cu"},
-    "宝剑": {"elem": "风", "core": "思想、理智与冲突", "symbol": "sw"},
-    "星币": {"elem": "土", "core": "物质、财富与现实基础", "symbol": "pe"}
+# 图库核心映射表：修复首牌与人物牌的特殊缩写
+suits_info = {"权杖": "wa", "圣杯": "cu", "宝剑": "sw", "星币": "pe"}
+ranks_map = {
+    "首牌": {"code": "ac", "desc": "新契机、潜能的爆发"}, "二": {"code": "02", "desc": "选择、平衡与规划"}, 
+    "三": {"code": "03", "desc": "初步成果、合作与成长"}, "四": {"code": "04", "desc": "稳定、休息与停滞"},
+    "五": {"code": "05", "desc": "冲突、损失与困境"}, "六": {"code": "06", "desc": "和谐、过渡与帮助"}, 
+    "七": {"code": "07", "desc": "挑战、防守与坚持"}, "八": {"code": "08", "desc": "迅速、移动与专注"},
+    "九": {"code": "09", "desc": "顶点、独立与焦虑"}, "十": {"code": "10", "desc": "完结、重压与极盛"}, 
+    "侍从": {"code": "pa", "desc": "新消息、学习与探索"}, "骑士": {"code": "kn", "desc": "行动力、冲动与追求"},
+    "王后": {"code": "qu", "desc": "内在掌控、滋养与成熟"}, "国王": {"code": "ki", "desc": "外在权威、规则与掌控"}
 }
-ranks_info = {
-    "首牌": "新契机、潜能的爆发", "二": "选择、平衡与规划", "三": "初步成果、合作与成长", "四": "稳定、休息与停滞",
-    "五": "冲突、损失与困境", "六": "和谐、过渡与帮助", "七": "挑战、防守与坚持", "八": "迅速、移动与专注",
-    "九": "顶点、独立与焦虑", "十": "完结、重压与极盛", "侍从": "新消息、学习与探索", "骑士": "行动力、冲动与追求",
-    "王后": "内在掌控、滋养与成熟", "国王": "外在权威、规则与掌控"
-}
+
+elem_map = {"权杖": "火", "圣杯": "水", "宝剑": "风", "星币": "土"}
+core_map = {"权杖": "行动与创造力", "圣杯": "情感与潜意识", "宝剑": "思想与冲突", "星币": "物质与现实基础"}
 
 MAJORS = {}
 for i, (name, data) in enumerate(MAJORS_DB.items()):
     MAJORS[name] = {
         "img_url": f"{BASE_IMG_URL}ar{i:02d}.jpg", "tags": data["tags"], "astro": data["astro"], "elem": data["elem"],
-        "up": f"{data['meaning']}",
-        "rev": f"警告：{data['meaning']} 能量发生扭曲、过度或遭遇阻碍。需反思。"
+        "up": f"{data['meaning']}", "rev": f"警告：{data['meaning']} 能量发生扭曲、过度或遭遇阻碍。需反思。"
     }
 
 MINORS = {}
-for suit_name, s_data in suits_info.items():
-    for i, (rank_name, r_data) in enumerate(ranks_info.items()):
-        full_name = f"{suit_name}{rank_name}"
-        num = i + 1
+for suit, s_code in suits_info.items():
+    for rank, r_data in ranks_map.items():
+        full_name = f"{suit}{rank}"
+        elem = elem_map[suit]
         
+        # 用户指定的百科级硬编码
         if full_name == "权杖首牌":
             MINORS["权杖首牌 (Ace Of Wands)"] = {
-                "img_url": f"{BASE_IMG_URL}wa01.jpg",
-                "tags": "新行动、创造、机会、灵感、潜力、启动",
-                "elem": "火", "astro": "火象特质",
+                "img_url": f"{BASE_IMG_URL}waac.jpg",
+                "tags": "新行动、创造、机会、灵感、潜力、启动", "elem": f"{elem}元素",
                 "up": "象征新的开始、创造力与激情迸发。代表充满潜力的新机会，鼓励勇敢探索。",
                 "rev": "能量失控导致拖延或方向错误，热情消退、资源浪费，需审视动机。"
             }
         else:
             MINORS[f"{full_name}"] = {
-                "img_url": f"{BASE_IMG_URL}{s_data['symbol']}{num:02d}.jpg",
-                "tags": f"{s_data['core']}、{r_data.split('、')[0]}",
-                "elem": s_data['elem'], "astro": f"{s_data['elem']}象",
-                "up": f"在{s_data['core']}领域，迎来【{r_data}】。建议顺势而为。",
-                "rev": f"在{s_data['elem']}元素领域，【{r_data}】表现负面效应，能量受阻。"
+                "img_url": f"{BASE_IMG_URL}{s_code}{r_data['code']}.jpg",
+                "tags": f"{core_map[suit]}、{r_data['desc'].split('、')[0]}", "elem": f"{elem}元素",
+                "up": f"在{elem}元素主导的领域（代表{core_map[suit]}），迎来了【{r_data['desc']}】阶段。正位暗示能量顺畅，建议把握当下契机顺势而为。",
+                "rev": f"逆位时，{elem}元素的能量在此阶段发生了扭曲或受阻。可能表现为行动力延迟或内耗，需要放慢脚步重新审视动机。"
             }
 
 # ==========================================
@@ -206,14 +209,16 @@ def render_slot(stage_name, step_req_major, step_req_minor, state_key):
                 st.session_state.step = step_req_minor; st.rerun()
                 
         if st.session_state.step >= step_req_minor:
-            minors_html = "<div style='display:flex; flex-direction:column; align-items:center; width:100%; margin-top:10px;'>"
+            minors_html = "<div style='display:flex; flex-direction:column; align-items:center; width:100%;'>"
             for m_card in st.session_state.spread[state_key]["minors"]:
                 m_data = MINORS[m_card["name"]]
                 m_img_transform = "transform: rotate(180deg);" if m_card["pos"] == "逆位" else ""
                 m_badge = "<span style='color:#ef4444;'>[逆位]</span>" if m_card["pos"] == "逆位" else "<span style='color:#22c55e;'>[正位]</span>"
                 m_meaning = m_data["rev"] if m_card["pos"] == "逆位" else m_data["up"]
                 border_color = "#ef4444" if m_card["pos"] == "逆位" else "#6b7280"
-                minors_html += f"<div class='minor-card-container' style='border-left-color: {border_color};'><div class='minor-img-wrapper'><img src='{m_data['img_url']}' style='{m_img_transform}'></div><div class='minor-text'><div style='color:#eab308; font-weight:bold; margin-bottom:4px;'>{m_card['name']} {m_badge}</div><div style='color:#9ca3af; margin-bottom:4px;'>属性: {m_data['elem']} ({m_data['astro']})</div><div style='color:#d1d5db;'>{m_meaning}</div></div></div>"
+                
+                minors_html += f"<div class='minor-card-container' style='border-top-color: {border_color};'><div style='width:100%; display:flex; justify-content:center;'><div class='minor-img-wrapper'><img src='{m_data['img_url']}' style='{m_img_transform}'></div></div><div class='minor-text'><div style='color:#eab308; font-size:14px; font-weight:bold; margin-bottom:8px; text-align:center;'>{m_card['name']} {m_badge}</div><div style='color:#9ca3af; margin-bottom:8px; text-align:center;'>属性: {m_data['elem']} | 关键字: {m_data['tags']}</div><div style='color:#d1d5db; border-top: 1px dashed #4b5563; padding-top: 10px;'>{m_meaning}</div></div></div>"
+            
             minors_html += "</div>"
             st.markdown(minors_html, unsafe_allow_html=True)
 
