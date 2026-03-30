@@ -254,15 +254,16 @@ if st.session_state.step > 0:
     
     col_p, col_pr, col_f = st.columns(3)
     
-    # 状态机步骤已完美对齐，不会报错
-    with col_p: render_slot("过去起因", 1, 2, "past")
-    with col_pr: render_slot("现在状况", 3, 4, "present")
-    with col_f: render_slot("未来走向", 5, 6, "future")
+    # 【改这里】：数字顺延，完美对齐状态机！
+    with col_p: render_slot("过去起因", 2, 3, "past")
+    with col_pr: render_slot("现在状况", 4, 5, "present")
+    with col_f: render_slot("未来走向", 6, 7, "future")
 
 # ==========================================
 # 6. 通用大模型解盘系统
 # ==========================================
-if st.session_state.step == 6:
+# 【改这里】：只有走完第 7 步，才呼叫 AI
+if st.session_state.step == 7: 
     st.divider()
     col_ai1, col_ai2, col_ai3 = st.columns([1,2,1])
     with col_ai2:
