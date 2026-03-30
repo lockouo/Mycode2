@@ -3,24 +3,23 @@ import random
 from openai import OpenAI
 
 # ==========================================
-# 1. 全局配置与沉浸式 UI 系统 (加入星空背景)
+# 1. 全局配置与沉浸式开屏 UI 系统
 # ==========================================
-st.set_page_config(page_title="塔罗占卜", layout="wide", initial_sidebar_state="expanded")
+# 彻底关闭侧边栏
+st.set_page_config(page_title="塔罗占卜", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
-    /* 引入深邃星空背景，混合暗色遮罩保证文字可读性 */
+    /* 引入深邃星空背景，混合暗色遮罩 */
     .stApp { 
         background-color: rgba(9, 10, 15, 0.85); 
         background-image: url('https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1920&auto=format&fit=crop');
-        background-size: cover;
-        background-attachment: fixed;
-        background-blend-mode: overlay;
-        color: #d1d5db; 
-        font-family: 'Times New Roman', STSong, serif; 
+        background-size: cover; background-attachment: fixed; background-blend-mode: overlay;
+        color: #d1d5db; font-family: 'Times New Roman', STSong, serif; 
     }
     
-    h1, h2, h3 { color: #eab308 !important; text-align: center; text-shadow: 0 0 10px rgba(234, 179, 8, 0.3); }
+    /* 彻底隐藏侧边栏的展开按钮，实现纯净全屏 */
+    [data-testid="collapsedControl"] { display: none; }
     
     /* 绝对物理居中所有按钮 */
     div.stButton { display: flex !important; justify-content: center !important; width: 100% !important; margin-top: 10px; margin-bottom: 20px; }
@@ -32,13 +31,12 @@ st.markdown("""
     div.stButton > button:hover { background: rgba(234, 179, 8, 0.2); box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); border-color: #facc15; color: #facc15; }
 
     [data-testid="column"] { display: flex; flex-direction: column; align-items: center; }
-
     .card-slot { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 100%; }
     
+    /* 塔罗牌实体特效 */
     .tarot-frame { width: 170px; height: 290px; perspective: 1000px; margin-bottom: 15px; }
     .tarot-inner { width: 100%; height: 100%; position: relative; transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; }
     .is-reversed .tarot-inner { transform: rotate(180deg); }
-    
     .tarot-front, .tarot-back {
         width: 100%; height: 100%; position: absolute; backface-visibility: hidden;
         border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.8); border: 2px solid #4b5563;
@@ -51,7 +49,7 @@ st.markdown("""
     .tarot-back::after { content: '✧'; color: #eab308; font-size: 45px; opacity: 0.5; }
     .tarot-front img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
     
-    /* 玻璃拟态半透明面板，适配星空背景 */
+    /* 数据看板 (主牌与辅牌) */
     .wiki-panel {
         width: 100%; max-width: 340px; background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(5px);
         border: 1px solid #374151; border-top: 3px solid #eab308; border-radius: 6px;
@@ -77,11 +75,34 @@ st.markdown("""
     .minor-img-wrapper { width: 120px; margin-bottom: 12px; perspective: 500px; box-shadow: 0 5px 15px rgba(0,0,0,0.8); border-radius: 4px;}
     .minor-img-wrapper img { width: 100%; border-radius: 4px; border: 1px solid #4b5563; }
     .minor-text { width: 100%; font-size: 13px; line-height: 1.5; }
+
+    /* 开屏巨幕特效 */
+    .hero-title {
+        font-size: 3.5rem; color: #eab308; text-shadow: 0 0 25px rgba(234, 179, 8, 0.6); 
+        letter-spacing: 15px; text-align: center; margin-top: 60px; margin-bottom: 10px;
+        font-weight: normal;
+    }
+    .hero-subtitle {
+        color: #9ca3af; font-size: 1.1rem; text-align: center; max-width: 600px; 
+        margin: 0 auto 40px auto; line-height: 1.8; letter-spacing: 1px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 塔罗图鉴数据库 (原画 + 占星体系)
+# 2. 安全后台 API 读取 (隐藏前端输入框)
+# ==========================================
+try:
+    api_base = st.secrets.get("API_BASE", "https://api.openai.com/v1")
+    api_model = st.secrets.get("API_MODEL", "gpt-3.5-turbo")
+    api_key = st.secrets.get("API_KEY", "")
+except:
+    api_base = "https://api.openai.com/v1"
+    api_model = "gpt-3.5-turbo"
+    api_key = ""
+
+# ==========================================
+# 3. 塔罗图鉴数据库 (原画 + 说人话解析)
 # ==========================================
 BASE_IMG_URL = "https://sacred-texts.com/tarot/pkt/img/"
 
@@ -111,18 +132,19 @@ MAJORS_DB = {
 }
 
 suits_info = {"权杖": "wa", "圣杯": "cu", "宝剑": "sw", "星币": "pe"}
+# 【终极修复 3：辅牌解读说人话，直接明了】
 ranks_map = {
-    "首牌": {"code": "ac", "desc": "新契机、潜能的爆发"}, "二": {"code": "02", "desc": "选择、平衡与规划"}, 
-    "三": {"code": "03", "desc": "初步成果、合作与成长"}, "四": {"code": "04", "desc": "稳定、休息与停滞"},
-    "五": {"code": "05", "desc": "冲突、损失与困境"}, "六": {"code": "06", "desc": "和谐、过渡与帮助"}, 
-    "七": {"code": "07", "desc": "挑战、防守与坚持"}, "八": {"code": "08", "desc": "迅速、移动与专注"},
-    "九": {"code": "09", "desc": "顶点、独立与焦虑"}, "十": {"code": "10", "desc": "完结、重压与极盛"}, 
-    "侍从": {"code": "pa", "desc": "新消息、学习与探索"}, "骑士": {"code": "kn", "desc": "行动力、冲动与追求"},
-    "王后": {"code": "qu", "desc": "内在掌控、滋养与成熟"}, "国王": {"code": "ki", "desc": "外在权威、规则与掌控"}
+    "首牌": {"code": "ac", "desc": "潜能爆发与新契机"}, "二": {"code": "02", "desc": "选择、平衡与规划"}, 
+    "三": {"code": "03", "desc": "初步成果与团队协作"}, "四": {"code": "04", "desc": "稳定、停滞与休息"},
+    "五": {"code": "05", "desc": "冲突、挑战与困境"}, "六": {"code": "06", "desc": "和谐、援助与过渡"}, 
+    "七": {"code": "07", "desc": "防守、坚持与勇气"}, "八": {"code": "08", "desc": "迅速发展与专注目标"},
+    "九": {"code": "09", "desc": "接近顶点、独立与焦虑"}, "十": {"code": "10", "desc": "阶段完结与承受重压"}, 
+    "侍从": {"code": "pa", "desc": "探索未知与新的消息"}, "骑士": {"code": "kn", "desc": "冲动与行动力爆发"},
+    "王后": {"code": "qu", "desc": "内在丰盈与成熟滋养"}, "国王": {"code": "ki", "desc": "建立秩序与外在掌控"}
 }
 
 elem_map = {"权杖": "火", "圣杯": "水", "宝剑": "风", "星币": "土"}
-core_map = {"权杖": "行动与创造力", "圣杯": "情感与潜意识", "宝剑": "思想与冲突", "星币": "物质与现实基础"}
+core_map = {"权杖": "行动与创造", "圣杯": "情感与人际", "宝剑": "思想与沟通", "星币": "物质与现实"}
 
 MAJORS = {}
 for i, (name, data) in enumerate(MAJORS_DB.items()):
@@ -139,32 +161,17 @@ for suit, s_code in suits_info.items():
         
         if full_name == "权杖首牌":
             MINORS["权杖首牌 (Ace Of Wands)"] = {
-                "img_url": f"{BASE_IMG_URL}waac.jpg", "tags": "新行动、创造、机会、灵感、潜力、启动", "elem": f"{elem}元素",
-                "up": "象征新的开始、创造力与激情迸发。代表充满潜力的新机会，鼓励勇敢探索。",
-                "rev": "能量失控导致拖延或方向错误，热情消退、资源浪费，需审视动机。"
+                "img_url": f"{BASE_IMG_URL}waac.jpg", "tags": "新行动、创造、机会、启动", "elem": f"{elem}元素",
+                "up": "【正位】代表潜能的迸发与新机会的到来。能量十分充沛，鼓励积极行动与勇敢探索。",
+                "rev": "【逆位】暗示热情消退或方向错误。能量发生失控，可能面临计划缺失及资源浪费。"
             }
         else:
             MINORS[f"{full_name}"] = {
                 "img_url": f"{BASE_IMG_URL}{s_code}{r_data['code']}.jpg",
-                "tags": f"{core_map[suit]}、{r_data['desc'].split('、')[0]}", "elem": f"{elem}元素",
-                "up": f"在{elem}元素主导的领域（代表{core_map[suit]}），迎来了【{r_data['desc']}】阶段。正位暗示能量顺畅，建议把握当下契机顺势而为。",
-                "rev": f"逆位时，{elem}元素的能量在此阶段发生了扭曲或受阻。可能表现为行动力延迟或内耗，需要放慢脚步重新审视动机。"
+                "tags": f"{core_map[suit]}、{r_data['desc'].split('与')[0]}", "elem": f"{elem}元素",
+                "up": f"【正位】代表着{r_data['desc']}。当前能量顺畅，事物正朝着积极的方向发展，宜顺势而为。",
+                "rev": f"【逆位】暗示{r_data['desc']}的特质受阻或被过度放大。面临延迟与内耗，需要谨慎调整。"
             }
-
-# ==========================================
-# 3. 后台安全 API 配置读取 (隐藏 Key)
-# ==========================================
-st.sidebar.header("🔌 大模型 API 配置")
-st.sidebar.markdown("安全模式：Key 可在云端 Secrets 中静态配置。当前界面输入的内容不会被保存。")
-
-# 优先读取系统 Secrets，如果没有则为空。保证安全与便捷。
-default_base = st.secrets.get("API_BASE", "https://api.openai.com/v1")
-default_model = st.secrets.get("API_MODEL", "gpt-3.5-turbo")
-default_key = st.secrets.get("API_KEY", "")
-
-api_base = st.sidebar.text_input("API Base URL", value=default_base)
-api_model = st.sidebar.text_input("模型名称 (Model)", value=default_model)
-api_key = st.sidebar.text_input("API Key", value=default_key, type="password")
 
 # ==========================================
 # 4. 状态机与 UI 核心渲染
@@ -185,7 +192,7 @@ def render_slot(stage_name, step_req_major, step_req_minor, state_key):
         st.markdown("""
         <div class="card-slot">
             <div class="tarot-frame"><div class="tarot-inner"><div class="tarot-back"></div></div></div>
-            <div style="color:#9ca3af; font-size:12px; margin-top:10px; margin-bottom:10px;">[ 灵体潜伏中 ]</div>
+            <div style="color:#9ca3af; font-size:12px; margin-top:10px; margin-bottom:10px;">[ 命运尚未揭晓 ]</div>
         </div>
         """, unsafe_allow_html=True)
         if st.session_state.step == step_req_major - 1:
@@ -236,20 +243,30 @@ def render_slot(stage_name, step_req_major, step_req_minor, state_key):
             st.markdown(minors_html, unsafe_allow_html=True)
 
 # ==========================================
-# 5. 仪式流程
+# 5. 仪式流程与炫酷开屏
 # ==========================================
-st.title("👁️‍🗨️ 塔罗占卜")
-
 if st.session_state.step == 0:
-    q = st.text_input("请在此铭刻你的疑问：", placeholder="例如：我的下一个商业项目会遇到什么转机？")
+    # 全新：极具质感的开屏巨幕
+    st.markdown("""
+        <div class="hero-title">塔 罗 占 卜</div>
+        <div class="hero-subtitle">
+            跨越维度的意识链接已经就绪。<br>
+            请在静默中集中精神，将你内心深处的困惑，铭刻于下方的矩阵之中。
+        </div>
+    """, unsafe_allow_html=True)
+    
+    q = st.text_input("", placeholder="例如：我的下一个重大决定会带来什么影响？", label_visibility="collapsed")
+    st.markdown("<br>", unsafe_allow_html=True)
+    
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
     with col_btn2:
-        if st.button("开启星轨阵列", use_container_width=True):
+        if st.button("开始连接命运星轨", use_container_width=True):
             if q: st.session_state.q = q; st.session_state.step = 1; st.rerun()
-            else: st.warning("请输入问题。")
+            else: st.warning("空白无法被解读，请写下你的问题。")
 
 if st.session_state.step > 0:
-    st.markdown(f"<h4 style='text-align:center; color:#eab308; border-bottom:1px dashed #374151; padding-bottom:15px; margin-bottom:30px;'>探讨命题：{st.session_state.q}</h4>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='text-align:center; color:#eab308; border-bottom:1px dashed #374151; padding-bottom:15px; margin-bottom:30px;'>当前命题：{st.session_state.q}</h4>", unsafe_allow_html=True)
     
     col_p, col_pr, col_f = st.columns(3)
     with col_p: render_slot("过去起因", 2, 3, "past")
@@ -264,7 +281,7 @@ if st.session_state.step == 7:
     col_ai1, col_ai2, col_ai3 = st.columns([1, 1, 1])
     with col_ai2:
         if st.button("🌌 请求占星师高维解阵", use_container_width=True):
-            if not api_key: st.error("请先在左侧边栏配置 API Key。")
+            if not api_key: st.error("请先在应用后台 (Secrets) 中配置 API Key。")
             else:
                 try:
                     client = OpenAI(api_key=api_key, base_url=api_base)
