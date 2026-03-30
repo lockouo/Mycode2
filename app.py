@@ -3,9 +3,9 @@ import random
 from openai import OpenAI
 
 # ==========================================
-# 1. 全局配置与像素级对齐 UI 系统
+# 1. 全局配置与绝对居中 UI 系统
 # ==========================================
-st.set_page_config(page_title="沉浸式赛博塔罗 | 终极阵列版", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="沉浸式赛博塔罗 | 终极完美版", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
 <style>
@@ -13,20 +13,27 @@ st.markdown("""
     .stApp { background-color: #090a0f; color: #d1d5db; font-family: 'Times New Roman', STSong, serif; }
     h1, h2, h3 { color: #eab308 !important; text-align: center; text-shadow: 0 0 10px rgba(234, 179, 8, 0.3); }
     
-    /* 【终极修复 1】：强制所有列元素绝对居中，彻底解决按钮歪斜 */
-    [data-testid="column"] {
-        display: flex; flex-direction: column; align-items: center;
+    /* 【终极修复 1：绝对物理居中所有按钮】 */
+    div.stButton {
+        display: flex !important; 
+        justify-content: center !important; 
+        width: 100% !important;
+        margin-top: 10px;
+        margin-bottom: 20px;
     }
-    
-    /* 重塑神秘学按钮 */
-    div.stButton { width: 100%; display: flex; justify-content: center; }
     div.stButton > button {
-        width: 180px !important; /* 与卡牌同宽 */
+        width: 220px !important; /* 固定一个美观的宽度 */
+        margin: 0 auto !important; /* 物理强制居中 */
         background: transparent; border: 1px solid #eab308; color: #eab308;
         border-radius: 4px; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;
     }
     div.stButton > button:hover { 
         background: rgba(234, 179, 8, 0.1); box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); border-color: #facc15; color: #facc15; 
+    }
+
+    /* 强制所有列的内容居中排列 */
+    [data-testid="column"] {
+        display: flex; flex-direction: column; align-items: center;
     }
 
     /* 核心卡槽布局 */
@@ -71,7 +78,7 @@ st.markdown("""
     .wiki-value { color: #d1d5db; }
     .wiki-highlight { color: #eab308; font-weight: bold;}
     
-    /* 辅牌精美横向信息流图文排版 */
+    /* 辅牌横向信息流图文排版 */
     .minor-card-container {
         display: flex; align-items: stretch; background: rgba(255,255,255,0.03); 
         border-radius: 6px; padding: 8px; margin-bottom: 8px; border-left: 3px solid #6b7280;
@@ -84,215 +91,10 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 塔罗图鉴数据库 (原画 + 占星体系)
+# 2. 塔罗图鉴数据库
 # ==========================================
 BASE_IMG_URL = "https://sacred-texts.com/tarot/pkt/img/"
 
 MAJORS_DB = {
     "愚者 (The Fool)": {"astro": "天王星", "elem": "风", "tags": "开始、冒险、天真、潜能、自由", "meaning": "象征着一段新旅程的开始，不计后果地跃入未知，充满无限潜能与乐观精神。"},
-    "魔术师 (The Magician)": {"astro": "水星", "elem": "风", "tags": "创造、沟通、行动、资源、掌控", "meaning": "代表将内心理念化为现实的能力，手中握有四大元素的资源，是绝佳的行动与沟通时机。"},
-    "女祭司 (The High Priestess)": {"astro": "月亮", "elem": "水", "tags": "直觉、潜意识、神秘、等待、智慧", "meaning": "指向内在的智慧与隐秘的真相。建议在此刻保持静默，倾听直觉，向内探索而非向外寻求。"},
-    "皇后 (The Empress)": {"astro": "金星", "elem": "土", "tags": "丰盛、孕育、母性、自然、感官", "meaning": "象征着物质与情感的双重丰收，充满爱与滋养的能量，代表创造力的结晶与生活的享受。"},
-    "皇帝 (The Emperor)": {"astro": "白羊座", "elem": "火", "tags": "权力、秩序、规则、权威、稳定", "meaning": "代表着建立秩序与掌控全局的权威力量。需要运用理性、纪律与领导力来稳固现实基础。"},
-    "教皇 (The Hierophant)": {"astro": "金牛座", "elem": "土", "tags": "信仰、传统、教育、指引、体制", "meaning": "象征精神层面的导师或传统的社会结构。暗示遵循既定规则，或寻求专业人士/长辈的指导。"},
-    "恋人 (The Lovers)": {"astro": "双子座", "elem": "风", "tags": "选择、结合、爱情、价值观、和谐", "meaning": "不仅代表浪漫的情感结合，更深层意味着在重大人生分岔路口，基于真实内心的价值观抉择。"},
-    "战车 (The Chariot)": {"astro": "巨蟹座", "elem": "水", "tags": "意志、胜利、控制、前进、克服", "meaning": "凭借强大的意志力与自律，控制相互冲突的力量，克服重重阻碍，最终获得物质层面的胜利。"},
-    "力量 (Strength)": {"astro": "狮子座", "elem": "火", "tags": "勇气、耐心、柔克刚、内在力量", "meaning": "并非肉体的蛮力，而是以内在的勇气、爱与耐心，温柔地驯服内心的恐惧与野兽。"},
-    "隐士 (The Hermit)": {"astro": "处女座", "elem": "土", "tags": "孤独、反思、沉淀、内心指引", "meaning": "暂时脱离外界喧嚣，独自踏上寻找灵魂真理的旅程。代表深度思考、谨慎与自我启蒙。"},
-    "命运之轮 (Wheel of Fortune)": {"astro": "木星", "elem": "火", "tags": "转折、周期、机遇、不可抗力", "meaning": "象征宇宙法则的运转与命运的交替。低谷必将反弹，顺应时代的洪流，抓住突如其来的转机。"},
-    "正义 (Justice)": {"astro": "天秤座", "elem": "风", "tags": "公平、理性、因果、法律、决断", "meaning": "代表客观公正的评判与因果法则。你的决策将带来相应的后果，要求你保持理智与平衡。"},
-    "倒吊人 (The Hanged Man)": {"astro": "海王星", "elem": "水", "tags": "牺牲、换位思考、暂停、顿悟", "meaning": "通过自愿的牺牲或停滞，换取全新的视角与精神层面的顿悟。是以退为进的智慧。"},
-    "死神 (Death)": {"astro": "天蝎座", "elem": "水", "tags": "结束、蜕变、新生、断舍离", "meaning": "并非肉体的死亡，而是旧有模式、关系或阶段的彻底终结，从而为全新的生命腾出空间。"},
-    "节制 (Temperance)": {"astro": "射手座", "elem": "火", "tags": "平衡、调和、疗愈、中庸、结合", "meaning": "将截然不同的元素完美融合，达到动态的平衡。代表情绪的稳定、自我疗愈与妥协的艺术。"},
-    "恶魔 (The Devil)": {"astro": "摩羯座", "elem": "土", "tags": "欲望、束缚、物质、成瘾、阴暗面", "meaning": "象征被物质欲望、不良习惯或有害关系所囚禁。但这种枷锁往往是自己套上的，唯有觉醒方能解脱。"},
-    "高塔 (The Tower)": {"astro": "火星", "elem": "火", "tags": "突变、毁灭、崩溃、意外的觉醒", "meaning": "建立在虚假基础上的事物被突然且猛烈地摧毁。虽然带来痛苦，但清除了阻碍，是痛苦却必要的觉醒。"},
-    "星星 (The Star)": {"astro": "水瓶座", "elem": "风", "tags": "希望、疗愈、灵感、宁静、信仰", "meaning": "经历了高塔的毁灭后，迎来的宁静与希望。代表宇宙的祝福、灵感的涌现与精神的彻底疗愈。"},
-    "月亮 (The Moon)": {"astro": "双鱼座", "elem": "水", "tags": "不安、迷茫、潜意识、欺骗、恐惧", "meaning": "深入潜意识的幽暗地带，事物晦暗不明，充满未知的恐惧与幻象。需要极大的直觉力来辨别真伪。"},
-    "太阳 (The Sun)": {"astro": "太阳", "elem": "火", "tags": "快乐、成功、生命力、真相、光明", "meaning": "塔罗牌中最积极的牌之一。象征绝对的成功、纯粹的快乐、旺盛的生命力与一切阴霾的消散。"},
-    "审判 (Judgement)": {"astro": "冥王星", "elem": "火", "tags": "觉醒、召唤、救赎、总结、重生", "meaning": "听到来自高我的召唤，对过去的业力进行最终清算。代表原谅过去，彻底放下，迎来精神的涅槃。"},
-    "世界 (The World)": {"astro": "土星", "elem": "土", "tags": "圆满、达成、完美、旅程终点", "meaning": "愚者旅程的完美终点。代表目标的彻底达成、身心合一的圆满状态，以及准备开启下一个更高维度的循环。"}
-}
-
-suits_info = {
-    "权杖": {"elem": "火", "core": "行动、意志与创造力", "symbol": "wa"},
-    "圣杯": {"elem": "水", "core": "情感、潜意识与人际", "symbol": "cu"},
-    "宝剑": {"elem": "风", "core": "思想、理智与冲突", "symbol": "sw"},
-    "星币": {"elem": "土", "core": "物质、财富与现实基础", "symbol": "pe"}
-}
-ranks_info = {
-    "首牌": "新契机、潜能的爆发", "二": "选择、平衡与规划", "三": "初步成果、合作与成长", "四": "稳定、休息与停滞",
-    "五": "冲突、损失与困境", "六": "和谐、过渡与帮助", "七": "挑战、防守与坚持", "八": "迅速、移动与专注",
-    "九": "顶点、独立与焦虑", "十": "完结、重压与极盛", "侍从": "新消息、学习与探索", "骑士": "行动力、冲动与追求",
-    "王后": "内在掌控、滋养与成熟", "国王": "外在权威、规则与掌控"
-}
-
-MAJORS = {}
-for i, (name, data) in enumerate(MAJORS_DB.items()):
-    MAJORS[name] = {
-        "img_url": f"{BASE_IMG_URL}ar{i:02d}.jpg", "tags": data["tags"], "astro": data["astro"], "elem": data["elem"],
-        "up": f"{data['meaning']}",
-        "rev": f"警告：{data['meaning']} 能量发生扭曲、过度或遭遇阻碍。需反思。"
-    }
-
-MINORS = {}
-for suit_name, s_data in suits_info.items():
-    for i, (rank_name, r_data) in enumerate(ranks_info.items()):
-        full_name = f"{suit_name}{rank_name}"
-        num = i + 1
-        
-        # 针对权杖首牌的硬编码
-        if full_name == "权杖首牌":
-            MINORS["权杖首牌 (Ace Of Wands)"] = {
-                "img_url": f"{BASE_IMG_URL}wa01.jpg",
-                "tags": "新行动、创造、机会、灵感、潜力、启动",
-                "elem": "火", "astro": "火象特质",
-                "up": "象征新的开始、创造力与激情迸发。代表充满潜力的新机会，鼓励勇敢探索。",
-                "rev": "能量失控导致拖延或方向错误，热情消退、资源浪费，需审视动机。"
-            }
-        else:
-            MINORS[f"{full_name}"] = {
-                "img_url": f"{BASE_IMG_URL}{s_data['symbol']}{num:02d}.jpg",
-                "tags": f"{s_data['core']}、{r_data.split('、')[0]}",
-                "elem": s_data['elem'], "astro": f"{s_data['elem']}象",
-                "up": f"在{s_data['core']}领域，迎来【{r_data}】。建议顺势而为。",
-                "rev": f"在{s_data['elem']}元素领域，【{r_data}】表现负面效应，能量受阻。"
-            }
-
-# ==========================================
-# 3. 侧边栏配置
-# ==========================================
-st.sidebar.header("🔌 大模型 API 配置")
-api_base = st.sidebar.text_input("API Base URL", value="https://api.openai.com/v1")
-api_model = st.sidebar.text_input("模型名称 (Model)", value="gpt-3.5-turbo")
-api_key = st.sidebar.text_input("API Key", type="password")
-
-# ==========================================
-# 4. 状态机与 UI 核心渲染
-# ==========================================
-if 'step' not in st.session_state:
-    st.session_state.step = 0
-    st.session_state.deck_m = list(MAJORS.keys()); random.shuffle(st.session_state.deck_m)
-    st.session_state.deck_min = list(MINORS.keys()); random.shuffle(st.session_state.deck_min)
-    st.session_state.spread = {"past": {}, "present": {}, "future": {}}
-
-def draw_card(is_major):
-    return {"name": (st.session_state.deck_m if is_major else st.session_state.deck_min).pop(), "pos": random.choice(["正位", "逆位"])}
-
-def render_slot(stage_name, step_req_major, step_req_minor, state_key):
-    """渲染主牌和3张辅牌的高级图文卡槽"""
-    st.markdown(f"<h3 style='color:#f3f4f6;'>✦ {stage_name} ✦</h3>", unsafe_allow_html=True)
-    
-    # 未揭开主牌
-    if st.session_state.step < step_req_major:
-        st.markdown("""
-        <div class="card-slot">
-            <div class="tarot-frame"><div class="tarot-inner"><div class="tarot-back"></div></div></div>
-            <div style="color:#6b7280; font-size:12px; margin-top:10px;">[ 灵体潜伏中 ]</div>
-        </div>
-        """, unsafe_allow_html=True)
-        # 控制按钮出现时机
-        if st.session_state.step == step_req_major - 1:
-            if st.button(f"揭开 {stage_name} 主牌", key=f"btn_m_{stage_name}"):
-                st.session_state.spread[state_key]["major"] = draw_card(True)
-                st.session_state.step = step_req_major; st.rerun()
-                
-    # 渲染已揭开的主牌
-    if st.session_state.step >= step_req_major:
-        card = st.session_state.spread[state_key]["major"]
-        data = MAJORS[card["name"]]
-        rev_class = "is-reversed" if card["pos"] == "逆位" else ""
-        badge = "<div class='status-badge rev-badge'>▼ 逆位 Reversed</div>" if card["pos"] == "逆位" else "<div class='status-badge up-badge'>▲ 正位 Upright</div>"
-        meaning = data["rev"] if card["pos"] == "逆位" else data["up"]
-        p_class = "rev-panel" if card["pos"] == "逆位" else ""
-        
-        st.markdown(f"""
-        <div class="card-slot">
-            <div class="tarot-frame {rev_class}">
-                <div class="tarot-inner"><div class="tarot-front"><img src="{data['img_url']}"></div></div>
-            </div>
-            <div class="wiki-panel {p_class}">
-                <div class="wiki-title">{card["name"]}</div>
-                <div style="text-align: center;">{badge}</div>
-                <div class="wiki-row"><span class="wiki-label">元素/占星：</span><span class="wiki-highlight">{data['elem']}</span> / <span style="color:#c084fc; font-weight:bold;">{data['astro']}</span></div>
-                <div class="wiki-row"><span class="wiki-label">关键字：</span><span class="wiki-value">{data['tags']}</span></div>
-                <div class="wiki-row" style="margin-top:8px;"><span class="wiki-label">解析：</span><span class="wiki-value">{meaning}</span></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 抽取 3 张辅牌的按钮
-        if st.session_state.step == step_req_minor - 1:
-            if st.button(f"启示 3张细节辅牌", key=f"btn_min_{stage_name}"):
-                st.session_state.spread[state_key]["minors"] = [draw_card(False) for _ in range(3)]
-                st.session_state.step = step_req_minor; st.rerun()
-                
-        # 渲染 3 张辅牌 
-        # 【终极修复 2】：使用单行字符串拼接，绝对消除前置空格，告别代码块乱入！
-        if st.session_state.step >= step_req_minor:
-            minors_html = "<div style='display:flex; flex-direction:column; align-items:center; width:100%;'>"
-            for m_card in st.session_state.spread[state_key]["minors"]:
-                m_data = MINORS[m_card["name"]]
-                m_img_transform = "transform: rotate(180deg);" if m_card["pos"] == "逆位" else ""
-                m_badge = "<span style='color:#ef4444;'>[逆位]</span>" if m_card["pos"] == "逆位" else "<span style='color:#22c55e;'>[正位]</span>"
-                m_meaning = m_data["rev"] if m_card["pos"] == "逆位" else m_data["up"]
-                border_color = "#ef4444" if m_card["pos"] == "逆位" else "#6b7280"
-                
-                # 不换行拼接，强行干掉 Markdown 代码块触发条件
-                minors_html += f"<div class='minor-card-container' style='border-left-color: {border_color};'><div class='minor-img-wrapper'><img src='{m_data['img_url']}' style='{m_img_transform}'></div><div class='minor-text'><div style='color:#eab308; font-weight:bold; margin-bottom:4px;'>{m_card['name']} {m_badge}</div><div style='color:#9ca3af; margin-bottom:4px;'>属性: {m_data['elem']} ({m_data['astro']})</div><div style='color:#d1d5db;'>{m_meaning}</div></div></div>"
-            
-            minors_html += "</div>"
-            st.markdown(minors_html, unsafe_allow_html=True)
-
-# ==========================================
-# 5. 仪式流程
-# ==========================================
-st.title("👁️‍🗨️ 赛博塔罗：全量图鉴·终极阵列")
-
-if st.session_state.step == 0:
-    q = st.text_input("请在此铭刻你的疑问：", placeholder="例如：我的下一个商业项目会遇到什么转机？")
-    if st.button("开启星轨阵列"):
-        if q: st.session_state.q = q; st.session_state.step = 1; st.rerun()
-        else: st.warning("请输入问题。")
-
-if st.session_state.step > 0:
-    st.markdown(f"<h4 style='text-align:center; color:#eab308; border-bottom:1px dashed #374151; padding-bottom:15px; margin-bottom:30px;'>探讨命题：{st.session_state.q}</h4>", unsafe_allow_html=True)
-    
-    col_p, col_pr, col_f = st.columns(3)
-    with col_p: render_slot("过去起因", 1, 2, "past")
-    with col_pr: render_slot("现在状况", 3, 4, "present")
-    with col_f: render_slot("未来走向", 5, 6, "future")
-
-# ==========================================
-# 6. 大模型综合解盘
-# ==========================================
-if st.session_state.step == 6:
-    st.divider()
-    if st.button("🌌 请求大模型进行高维解阵"):
-        if not api_key: st.error("请先在左侧边栏配置 API Key。")
-        else:
-            try:
-                client = OpenAI(api_key=api_key, base_url=api_base)
-                
-                prompt = f"问卜者：“{st.session_state.q}”\n"
-                for stage, key in zip(["【过去】", "【现在】", "【未来】"], ["past", "present", "future"]):
-                    maj = st.session_state.spread[key]["major"]
-                    mins = st.session_state.spread[key]["minors"]
-                    mins_str = "、".join([f"{m['name']}({m['pos']})" for m in mins])
-                    prompt += f"{stage} 宿命主牌：{maj['name']}({maj['pos']}) | 现实途径辅牌：{mins_str}\n"
-                
-                prompt += "请作为资深塔罗大师解读。分析大牌的宿命如何被三张小牌的现实细节所支撑或阻碍，给出实质性建议。"
-                
-                with st.spinner(f"正在通过 {api_model} 连接星界网络..."):
-                    res = client.chat.completions.create(
-                        model=api_model,
-                        messages=[{"role": "system", "content": "你是一位顶级塔罗解读师。"}, {"role": "user", "content": prompt}],
-                        temperature=0.7
-                    )
-                    st.success("解析完毕：")
-                    st.markdown(f"<div style='background:#111827; padding:20px; border-radius:8px; border:1px solid #374151; max-width:800px; margin: 0 auto;'>{res.choices[0].message.content}</div>", unsafe_allow_html=True)
-            except Exception as e: st.error(f"接口调用失败。错误详情：{e}")
-            
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("↻ 重置星轨，开启新局"):
-        for key in list(st.session_state.keys()): del st.session_state[key]
-        st.rerun()
+    "魔术师 (The Magician)": {"astro": "水星", "elem": "风", "tags": "创造、沟通、行动、资源、掌控", "meaning": "代表将内心理念化为现实的能力，手中握有四大
