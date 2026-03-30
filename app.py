@@ -112,4 +112,71 @@ MAJORS_DB = {
     "死神 (Death)": {"astro": "天蝎座", "elem": "水", "tags": "结束、蜕变、新生、断舍离", "meaning": "并非肉体的死亡，而是旧有模式、关系或阶段的彻底终结，从而为全新的生命腾出空间。"},
     "节制 (Temperance)": {"astro": "射手座", "elem": "火", "tags": "平衡、调和、疗愈、中庸、结合", "meaning": "将截然不同的元素完美融合，达到动态的平衡。代表情绪的稳定、自我疗愈与妥协的艺术。"},
     "恶魔 (The Devil)": {"astro": "摩羯座", "elem": "土", "tags": "欲望、束缚、物质、成瘾、阴暗面", "meaning": "象征被物质欲望、不良习惯或有害关系所囚禁。但这种枷锁往往是自己套上的，唯有觉醒方能解脱。"},
-    "高塔 (The Tower)": {"astro": "火星", "
+    "高塔 (The Tower)": {"astro": "火星", "elem": "火", "tags": "突变、毁灭、崩溃、意外的觉醒", "meaning": "建立在虚假基础上的事物被突然且猛烈地摧毁。虽然带来痛苦，但清除了阻碍，是痛苦却必要的觉醒。"},
+    "星星 (The Star)": {"astro": "水瓶座", "elem": "风", "tags": "希望、疗愈、灵感、宁静、信仰", "meaning": "经历了高塔的毁灭后，迎来的宁静与希望。代表宇宙的祝福、灵感的涌现与精神的彻底疗愈。"},
+    "月亮 (The Moon)": {"astro": "双鱼座", "elem": "水", "tags": "不安、迷茫、潜意识、欺骗、恐惧", "meaning": "深入潜意识的幽暗地带，事物晦暗不明，充满未知的恐惧与幻象。需要极大的直觉力来辨别真伪。"},
+    "太阳 (The Sun)": {"astro": "太阳", "elem": "火", "tags": "快乐、成功、生命力、真相、光明", "meaning": "塔罗牌中最积极的牌之一。象征绝对的成功、纯粹的快乐、旺盛的生命力与一切阴霾的消散。"},
+    "审判 (Judgement)": {"astro": "冥王星", "elem": "火", "tags": "觉醒、召唤、救赎、总结、重生", "meaning": "听到来自高我的召唤，对过去的业力进行最终清算。代表原谅过去，彻底放下，迎来精神的涅槃。"},
+    "世界 (The World)": {"astro": "土星", "elem": "土", "tags": "圆满、达成、完美、旅程终点", "meaning": "愚者旅程的完美终点。代表目标的彻底达成、身心合一的圆满状态，以及准备开启下一个更高维度的循环。"}
+}
+
+suits_info = {
+    "权杖": {"elem": "火", "core": "行动、意志与创造力", "symbol": "wa"},
+    "圣杯": {"elem": "水", "core": "情感、潜意识与人际", "symbol": "cu"},
+    "宝剑": {"elem": "风", "core": "思想、理智与冲突", "symbol": "sw"},
+    "星币": {"elem": "土", "core": "物质、财富与现实基础", "symbol": "pe"}
+}
+ranks_info = {
+    "首牌": "新契机、潜能的爆发", "二": "选择、平衡与规划", "三": "初步成果、合作与成长", "四": "稳定、休息与停滞",
+    "五": "冲突、损失与困境", "六": "和谐、过渡与帮助", "七": "挑战、防守与坚持", "八": "迅速、移动与专注",
+    "九": "顶点、独立与焦虑", "十": "完结、重压与极盛", "侍从": "新消息、学习与探索", "骑士": "行动力、冲动与追求",
+    "王后": "内在掌控、滋养与成熟", "国王": "外在权威、规则与掌控"
+}
+
+MAJORS = {}
+for i, (name, data) in enumerate(MAJORS_DB.items()):
+    MAJORS[name] = {
+        "img_url": f"{BASE_IMG_URL}ar{i:02d}.jpg", "tags": data["tags"], "astro": data["astro"], "elem": data["elem"],
+        "up": f"{data['meaning']}",
+        "rev": f"警告：{data['meaning']} 能量发生扭曲、过度或遭遇阻碍。需反思。"
+    }
+
+MINORS = {}
+for suit_name, s_data in suits_info.items():
+    for i, (rank_name, r_data) in enumerate(ranks_info.items()):
+        full_name = f"{suit_name}{rank_name}"
+        num = i + 1
+        
+        if full_name == "权杖首牌":
+            MINORS["权杖首牌 (Ace Of Wands)"] = {
+                "img_url": f"{BASE_IMG_URL}wa01.jpg",
+                "tags": "新行动、创造、机会、灵感、潜力、启动",
+                "elem": "火", "astro": "火象特质",
+                "up": "象征新的开始、创造力与激情迸发。代表充满潜力的新机会，鼓励勇敢探索。",
+                "rev": "能量失控导致拖延或方向错误，热情消退、资源浪费，需审视动机。"
+            }
+        else:
+            MINORS[f"{full_name}"] = {
+                "img_url": f"{BASE_IMG_URL}{s_data['symbol']}{num:02d}.jpg",
+                "tags": f"{s_data['core']}、{r_data.split('、')[0]}",
+                "elem": s_data['elem'], "astro": f"{s_data['elem']}象",
+                "up": f"在{s_data['core']}领域，迎来【{r_data}】。建议顺势而为。",
+                "rev": f"在{s_data['elem']}元素领域，【{r_data}】表现负面效应，能量受阻。"
+            }
+
+# ==========================================
+# 3. 侧边栏配置
+# ==========================================
+st.sidebar.header("🔌 大模型 API 配置")
+api_base = st.sidebar.text_input("API Base URL", value="https://api.openai.com/v1")
+api_model = st.sidebar.text_input("模型名称 (Model)", value="gpt-3.5-turbo")
+api_key = st.sidebar.text_input("API Key", type="password")
+
+# ==========================================
+# 4. 状态机与 UI 核心渲染
+# ==========================================
+if 'step' not in st.session_state:
+    st.session_state.step = 0
+    st.session_state.deck_m = list(MAJORS.keys()); random.shuffle(st.session_state.deck_m)
+    st.session_state.deck_min = list(MINORS.keys()); random.shuffle(st.session_state.deck_min)
+    st.session_state.spread = {"past": {}, "present": {}, "future": {}}
