@@ -13,16 +13,19 @@ st.markdown("""
     .stApp { background-color: #090a0f; color: #d1d5db; font-family: 'Times New Roman', STSong, serif; }
     h1, h2, h3 { color: #eab308 !important; text-align: center; text-shadow: 0 0 10px rgba(234, 179, 8, 0.3); }
     
-    /* 【核心修复】：强制接管 Streamlit 原生按钮，绝对居中，杜绝歪斜！ */
-    div[data-testid="stButton"] {
-        display: flex; justify-content: center; width: 100%; margin-top: 10px; margin-bottom: 20px;
+    /* 【终极修复 1】：强制所有列元素绝对居中，彻底解决按钮歪斜 */
+    [data-testid="column"] {
+        display: flex; flex-direction: column; align-items: center;
     }
-    div[data-testid="stButton"] > button {
+    
+    /* 重塑神秘学按钮 */
+    div.stButton { width: 100%; display: flex; justify-content: center; }
+    div.stButton > button {
         width: 180px !important; /* 与卡牌同宽 */
         background: transparent; border: 1px solid #eab308; color: #eab308;
         border-radius: 4px; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;
     }
-    div[data-testid="stButton"] > button:hover { 
+    div.stButton > button:hover { 
         background: rgba(234, 179, 8, 0.1); box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); border-color: #facc15; color: #facc15; 
     }
 
@@ -68,11 +71,11 @@ st.markdown("""
     .wiki-value { color: #d1d5db; }
     .wiki-highlight { color: #eab308; font-weight: bold;}
     
-    /* 【新增】：辅牌精美横向信息流图文排版 */
+    /* 辅牌精美横向信息流图文排版 */
     .minor-card-container {
         display: flex; align-items: stretch; background: rgba(255,255,255,0.03); 
         border-radius: 6px; padding: 8px; margin-bottom: 8px; border-left: 3px solid #6b7280;
-        width: 100%; max-width: 340px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        width: 100%; max-width: 340px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); text-align: left;
     }
     .minor-img-wrapper { width: 60px; flex-shrink: 0; margin-right: 12px; perspective: 500px;}
     .minor-img-wrapper img { width: 100%; border-radius: 4px; border: 1px solid #4b5563; }
@@ -187,7 +190,7 @@ def render_slot(stage_name, step_req_major, step_req_minor, state_key):
             <div style="color:#6b7280; font-size:12px; margin-top:10px;">[ 灵体潜伏中 ]</div>
         </div>
         """, unsafe_allow_html=True)
-        # 控制按钮出现时机，绝对居中
+        # 控制按钮出现时机
         if st.session_state.step == step_req_major - 1:
             if st.button(f"揭开 {stage_name} 主牌", key=f"btn_m_{stage_name}"):
                 st.session_state.spread[state_key]["major"] = draw_card(True)
@@ -223,7 +226,8 @@ def render_slot(stage_name, step_req_major, step_req_minor, state_key):
                 st.session_state.spread[state_key]["minors"] = [draw_card(False) for _ in range(3)]
                 st.session_state.step = step_req_minor; st.rerun()
                 
-        # 渲染 3 张辅牌 (左图右文横向排版，极具质感)
+        # 渲染 3 张辅牌 
+        # 【终极修复 2】：使用单行字符串拼接，绝对消除前置空格，告别代码块乱入！
         if st.session_state.step >= step_req_minor:
             minors_html = "<div style='display:flex; flex-direction:column; align-items:center; width:100%;'>"
             for m_card in st.session_state.spread[state_key]["minors"]:
@@ -233,18 +237,9 @@ def render_slot(stage_name, step_req_major, step_req_minor, state_key):
                 m_meaning = m_data["rev"] if m_card["pos"] == "逆位" else m_data["up"]
                 border_color = "#ef4444" if m_card["pos"] == "逆位" else "#6b7280"
                 
-                minors_html += f"""
-                <div class="minor-card-container" style="border-left-color: {border_color};">
-                    <div class="minor-img-wrapper">
-                        <img src="{m_data['img_url']}" style="{m_img_transform}">
-                    </div>
-                    <div class="minor-text">
-                        <div style="color:#eab308; font-weight:bold; margin-bottom:4px;">{m_card["name"]} {m_badge}</div>
-                        <div style="color:#9ca3af; margin-bottom:4px;">属性: {m_data['elem']} ({m_data['astro']})</div>
-                        <div style="color:#d1d5db;">{m_meaning}</div>
-                    </div>
-                </div>
-                """
+                # 不换行拼接，强行干掉 Markdown 代码块触发条件
+                minors_html += f"<div class='minor-card-container' style='border-left-color: {border_color};'><div class='minor-img-wrapper'><img src='{m_data['img_url']}' style='{m_img_transform}'></div><div class='minor-text'><div style='color:#eab308; font-weight:bold; margin-bottom:4px;'>{m_card['name']} {m_badge}</div><div style='color:#9ca3af; margin-bottom:4px;'>属性: {m_data['elem']} ({m_data['astro']})</div><div style='color:#d1d5db;'>{m_meaning}</div></div></div>"
+            
             minors_html += "</div>"
             st.markdown(minors_html, unsafe_allow_html=True)
 
@@ -255,57 +250,49 @@ st.title("👁️‍🗨️ 赛博塔罗：全量图鉴·终极阵列")
 
 if st.session_state.step == 0:
     q = st.text_input("请在此铭刻你的疑问：", placeholder="例如：我的下一个商业项目会遇到什么转机？")
-    # 为了让第一个按钮也不歪，用空列包起来
-    col_btn1, col_btn2, col_btn3 = st.columns([1,2,1])
-    with col_btn2:
-        if st.button("开启星轨阵列"):
-            if q: st.session_state.q = q; st.session_state.step = 1; st.rerun()
-            else: st.warning("请输入问题。")
+    if st.button("开启星轨阵列"):
+        if q: st.session_state.q = q; st.session_state.step = 1; st.rerun()
+        else: st.warning("请输入问题。")
 
 if st.session_state.step > 0:
     st.markdown(f"<h4 style='text-align:center; color:#eab308; border-bottom:1px dashed #374151; padding-bottom:15px; margin-bottom:30px;'>探讨命题：{st.session_state.q}</h4>", unsafe_allow_html=True)
     
     col_p, col_pr, col_f = st.columns(3)
-    with col_p: render_slot("过去起因", 2, 3, "past")
-    with col_pr: render_slot("现在状况", 4, 5, "present")
-    with col_f: render_slot("未来走向", 6, 7, "future")
+    with col_p: render_slot("过去起因", 1, 2, "past")
+    with col_pr: render_slot("现在状况", 3, 4, "present")
+    with col_f: render_slot("未来走向", 5, 6, "future")
 
 # ==========================================
 # 6. 大模型综合解盘
 # ==========================================
-if st.session_state.step == 7:
+if st.session_state.step == 6:
     st.divider()
-    col_ai1, col_ai2, col_ai3 = st.columns([1,2,1])
-    with col_ai2:
-        if st.button("🌌 请求大模型进行高维解阵"):
-            if not api_key: st.error("请先在左侧边栏配置 API Key。")
-            else:
-                try:
-                    client = OpenAI(api_key=api_key, base_url=api_base)
-                    
-                    prompt = f"问卜者：“{st.session_state.q}”\n"
-                    for stage, key in zip(["【过去】", "【现在】", "【未来】"], ["past", "present", "future"]):
-                        maj = st.session_state.spread[key]["major"]
-                        mins = st.session_state.spread[key]["minors"]
-                        mins_str = "、".join([f"{m['name']}({m['pos']})" for m in mins])
-                        prompt += f"{stage} 宿命主牌：{maj['name']}({maj['pos']}) | 现实途径辅牌：{mins_str}\n"
-                    
-                    prompt += "请作为资深塔罗大师解读。分析大牌的宿命如何被三张小牌的现实细节所支撑或阻碍，给出实质性建议。"
-                    
-                    with st.spinner(f"正在通过 {api_model} 连接星界网络..."):
-                        res = client.chat.completions.create(
-                            model=api_model,
-                            messages=[{"role": "system", "content": "你是一位顶级塔罗解读师。"}, {"role": "user", "content": prompt}],
-                            temperature=0.7
-                        )
-                        st.success("解析完毕：")
-                        st.markdown(f"<div style='background:#111827; padding:20px; border-radius:8px; border:1px solid #374151;'>{res.choices[0].message.content}</div>", unsafe_allow_html=True)
-                except Exception as e: st.error(f"接口调用失败。错误详情：{e}")
+    if st.button("🌌 请求大模型进行高维解阵"):
+        if not api_key: st.error("请先在左侧边栏配置 API Key。")
+        else:
+            try:
+                client = OpenAI(api_key=api_key, base_url=api_base)
+                
+                prompt = f"问卜者：“{st.session_state.q}”\n"
+                for stage, key in zip(["【过去】", "【现在】", "【未来】"], ["past", "present", "future"]):
+                    maj = st.session_state.spread[key]["major"]
+                    mins = st.session_state.spread[key]["minors"]
+                    mins_str = "、".join([f"{m['name']}({m['pos']})" for m in mins])
+                    prompt += f"{stage} 宿命主牌：{maj['name']}({maj['pos']}) | 现实途径辅牌：{mins_str}\n"
+                
+                prompt += "请作为资深塔罗大师解读。分析大牌的宿命如何被三张小牌的现实细节所支撑或阻碍，给出实质性建议。"
+                
+                with st.spinner(f"正在通过 {api_model} 连接星界网络..."):
+                    res = client.chat.completions.create(
+                        model=api_model,
+                        messages=[{"role": "system", "content": "你是一位顶级塔罗解读师。"}, {"role": "user", "content": prompt}],
+                        temperature=0.7
+                    )
+                    st.success("解析完毕：")
+                    st.markdown(f"<div style='background:#111827; padding:20px; border-radius:8px; border:1px solid #374151; max-width:800px; margin: 0 auto;'>{res.choices[0].message.content}</div>", unsafe_allow_html=True)
+            except Exception as e: st.error(f"接口调用失败。错误详情：{e}")
             
     st.markdown("<br>", unsafe_allow_html=True)
-    # 重置按钮也绝对居中
-    col_r1, col_r2, col_r3 = st.columns([1,2,1])
-    with col_r2:
-        if st.button("↻ 重置星轨，开启新局"):
-            for key in list(st.session_state.keys()): del st.session_state[key]
-            st.rerun()
+    if st.button("↻ 重置星轨，开启新局"):
+        for key in list(st.session_state.keys()): del st.session_state[key]
+        st.rerun()
