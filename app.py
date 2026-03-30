@@ -3,13 +3,12 @@ import random
 from openai import OpenAI
 
 # ==========================================
-# 1. 全局配置与高级图形化 UI 系统
+# 1. 全局配置与高级 UI 系统 (强化 AI 解析样式)
 # ==========================================
 st.set_page_config(page_title="塔罗占卜", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
-    /* 引入深邃星空背景 */
     .stApp { 
         background-color: rgba(9, 10, 15, 0.85); 
         background-image: url('https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1920&auto=format&fit=crop');
@@ -20,26 +19,15 @@ st.markdown("""
     [data-testid="collapsedControl"] { display: none; }
     
     /* 图形化艺术标题 */
-    .header-box {
-        display: flex; align-items: center; justify-content: center;
-        margin-top: 50px; margin-bottom: 40px;
-    }
+    .header-box { display: flex; align-items: center; justify-content: center; margin-top: 50px; margin-bottom: 40px; }
     .header-line { height: 1px; width: 60px; background: linear-gradient(to right, transparent, #eab308); margin: 0 20px; }
     .header-line-rev { height: 1px; width: 60px; background: linear-gradient(to left, transparent, #eab308); margin: 0 20px; }
-    .header-text { 
-        font-size: 3rem; color: #eab308; text-shadow: 0 0 20px rgba(234, 179, 8, 0.5); 
-        letter-spacing: 12px; font-weight: normal; 
-    }
+    .header-text { font-size: 3rem; color: #eab308; text-shadow: 0 0 20px rgba(234, 179, 8, 0.5); letter-spacing: 12px; font-weight: normal; }
 
-    /* 绝对对齐：标题与卡槽 */
     [data-testid="column"] { display: flex; flex-direction: column; align-items: center; text-align: center; }
-    .stage-title {
-        color: #f3f4f6 !important; font-size: 1.5rem; margin-bottom: 25px;
-        display: flex; align-items: center; justify-content: center; width: 100%;
-    }
+    .stage-title { color: #f3f4f6 !important; font-size: 1.5rem; margin-bottom: 25px; display: flex; align-items: center; justify-content: center; width: 100%; }
     .stage-title::before, .stage-title::after { content: '✦'; color: #eab308; margin: 0 10px; font-size: 1rem; opacity: 0.7; }
 
-    /* 按钮居中对齐修复 */
     div.stButton { display: flex !important; justify-content: center !important; width: 100% !important; margin-top: 10px; }
     div.stButton > button {
         width: 220px !important; margin: 0 auto !important; 
@@ -55,19 +43,11 @@ st.markdown("""
         width: 100%; height: 100%; position: absolute; backface-visibility: hidden;
         border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.8); border: 2px solid #4b5563;
     }
-    .tarot-back {
-        background: radial-gradient(circle, #1f2937 0%, #030712 100%); border-color: #eab308;
-        display: flex; justify-content: center; align-items: center;
-        background-image: repeating-linear-gradient(45deg, rgba(234, 179, 8, 0.05) 0, rgba(234, 179, 8, 0.05) 2px, transparent 2px, transparent 8px);
-    }
+    .tarot-back { background: radial-gradient(circle, #1f2937 0%, #030712 100%); border-color: #eab308; display: flex; justify-content: center; align-items: center; background-image: repeating-linear-gradient(45deg, rgba(234, 179, 8, 0.05) 0, rgba(234, 179, 8, 0.05) 2px, transparent 2px, transparent 8px); }
     .tarot-back::after { content: '✧'; color: #eab308; font-size: 45px; opacity: 0.5; }
     .tarot-front img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
     
-    .wiki-panel {
-        width: 100%; max-width: 340px; background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(5px);
-        border: 1px solid #374151; border-top: 3px solid #eab308; border-radius: 6px;
-        padding: 15px; font-size: 13px; line-height: 1.6; text-align: left; margin-bottom: 15px;
-    }
+    .wiki-panel { width: 100%; max-width: 340px; background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(5px); border: 1px solid #374151; border-top: 3px solid #eab308; border-radius: 6px; padding: 15px; font-size: 13px; line-height: 1.6; text-align: left; margin-bottom: 15px; }
     .wiki-panel.rev-panel { border-top-color: #ef4444; }
     .wiki-title { font-size: 16px; color: #f3f4f6; font-weight: bold; text-align: center; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid #374151; }
     
@@ -75,18 +55,34 @@ st.markdown("""
     .up-badge { background: rgba(34, 197, 94, 0.1); color: #4ade80; border: 1px solid #22c55e; }
     .rev-badge { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid #ef4444; }
     
-    .minor-card-container {
-        display: flex; flex-direction: column; align-items: center; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(5px);
-        border-radius: 8px; padding: 15px; margin-bottom: 15px; border-top: 3px solid #6b7280;
-        width: 100%; max-width: 340px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); text-align: left;
-    }
+    .minor-card-container { display: flex; flex-direction: column; align-items: center; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(5px); border-radius: 8px; padding: 15px; margin-bottom: 15px; border-top: 3px solid #6b7280; width: 100%; max-width: 340px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); text-align: left; }
     .minor-img-wrapper { width: 120px; margin-bottom: 12px; perspective: 500px; box-shadow: 0 5px 15px rgba(0,0,0,0.8); border-radius: 4px;}
     .minor-img-wrapper img { width: 100%; border-radius: 4px; border: 1px solid #4b5563; }
     .minor-text { width: 100%; font-size: 13px; line-height: 1.5; }
-    
-    .hero-subtitle {
-        color: #9ca3af; font-size: 1.1rem; text-align: center; max-width: 600px; 
-        margin: 0 auto 40px auto; line-height: 1.8; letter-spacing: 1px;
+
+    /* ========================================== */
+    /* AI 解析高级样式 */
+    /* ========================================== */
+    .ai-response-container {
+        max-width: 900px; margin: 30px auto; 
+        padding: 40px; background: rgba(13, 15, 23, 0.85);
+        border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 12px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.7), inset 0 0 20px rgba(234, 179, 8, 0.05);
+        line-height: 1.8; color: #e5e7eb; position: relative; overflow: hidden;
+    }
+    .ai-response-container::before {
+        content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+        background: linear-gradient(90deg, transparent, #eab308, transparent);
+    }
+    .ai-response-container h2, .ai-response-container h3 { 
+        color: #eab308 !important; border-bottom: 1px solid rgba(234, 179, 8, 0.2); 
+        padding-bottom: 10px; margin-top: 30px; text-align: left !important;
+    }
+    .ai-response-container p { margin-bottom: 1.5rem; letter-spacing: 0.5px; }
+    .ai-response-container strong { color: #facc15; font-weight: bold; }
+    .ai-quote {
+        border-left: 3px solid #eab308; padding-left: 20px; margin: 20px 0;
+        font-style: italic; color: #9ca3af; background: rgba(234, 179, 8, 0.03); padding: 15px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -104,7 +100,7 @@ except:
     api_key = ""
 
 # ==========================================
-# 3. 塔罗图鉴数据库 (逻辑保持原样)
+# 3. 塔罗图鉴数据库
 # ==========================================
 BASE_IMG_URL = "https://sacred-texts.com/tarot/pkt/img/"
 MAJORS_DB = {
@@ -146,31 +142,19 @@ core_map = {"权杖": "行动与创造", "圣杯": "情感与人际", "宝剑": 
 
 MAJORS = {}
 for i, (name, data) in enumerate(MAJORS_DB.items()):
-    MAJORS[name] = {
-        "img_url": f"{BASE_IMG_URL}ar{i:02d}.jpg", "tags": data["tags"], "astro": data["astro"], "elem": data["elem"],
-        "up": f"{data['meaning']}", "rev": f"警告：{data['meaning']} 能量发生扭曲、过度或遭遇阻碍。需反思。"
-    }
+    MAJORS[name] = { "img_url": f"{BASE_IMG_URL}ar{i:02d}.jpg", "tags": data["tags"], "astro": data["astro"], "elem": data["elem"], "up": f"{data['meaning']}", "rev": f"警告：{data['meaning']} 能量发生扭曲、过度或遭遇阻碍。需反思。" }
 MINORS = {}
 for suit, s_code in suits_info.items():
     for rank, r_data in ranks_map.items():
         full_name = f"{suit}{rank}"
         elem = elem_map[suit]
         if full_name == "权杖首牌":
-            MINORS["权杖首牌 (Ace Of Wands)"] = {
-                "img_url": f"{BASE_IMG_URL}waac.jpg", "tags": "新行动、创造、机会、启动", "elem": f"{elem}元素",
-                "up": "【正位】代表潜能的迸发与新机会的到来。能量十分充沛，鼓励积极行动与勇敢探索。",
-                "rev": "【逆位】暗示热情消退或方向错误。能量发生失控，可能面临计划缺失及资源浪费。"
-            }
+            MINORS["权杖首牌 (Ace Of Wands)"] = { "img_url": f"{BASE_IMG_URL}waac.jpg", "tags": "新行动、创造、机会、启动", "elem": f"{elem}元素", "up": "【正位】代表潜能的迸发与新机会的到来。能量十分充沛，鼓励积极行动与勇敢探索。", "rev": "【逆位】暗示热情消退或方向错误。能量发生失控，可能面临计划缺失及资源浪费。" }
         else:
-            MINORS[f"{full_name}"] = {
-                "img_url": f"{BASE_IMG_URL}{s_code}{r_data['code']}.jpg",
-                "tags": f"{core_map[suit]}、{r_data['desc'].split('与')[0]}", "elem": f"{elem}元素",
-                "up": f"【正位】代表着{r_data['desc']}。当前能量顺畅，事物正朝着积极的方向发展，宜顺势而为。",
-                "rev": f"【逆位】暗示{r_data['desc']}的特质受阻或被过度放大。面临延迟与内耗，需要谨慎调整。"
-            }
+            MINORS[f"{full_name}"] = { "img_url": f"{BASE_IMG_URL}{s_code}{r_data['code']}.jpg", "tags": f"{core_map[suit]}、{r_data['desc'].split('与')[0]}", "elem": f"{elem}元素", "up": f"【正位】代表着{r_data['desc']}。当前能量顺畅，事物正朝着积极的方向发展，宜顺势而为。", "rev": f"【逆位】暗示{r_data['desc']}的特质受阻或被过度放大。面临延迟与内耗，需要谨慎调整。" }
 
 # ==========================================
-# 4. 状态机渲染 (CSS 强化对齐)
+# 4. 状态机渲染
 # ==========================================
 if 'step' not in st.session_state:
     st.session_state.step = 0
@@ -182,77 +166,31 @@ def draw_card(is_major):
     return {"name": (st.session_state.deck_m if is_major else st.session_state.deck_min).pop(), "pos": random.choice(["正位", "逆位"])}
 
 def render_slot(stage_name, step_req_major, step_req_minor, state_key):
-    # 强化居中对齐的阶段标题
     st.markdown(f"<div class='stage-title'>{stage_name}</div>", unsafe_allow_html=True)
-    
     if st.session_state.step < step_req_major:
-        st.markdown("""
-        <div class="card-slot">
-            <div class="tarot-frame"><div class="tarot-inner"><div class="tarot-back"></div></div></div>
-            <div style="color:#9ca3af; font-size:12px; margin-top:10px; margin-bottom:10px;">[ 命运尚未揭晓 ]</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("""<div class="card-slot"><div class="tarot-frame"><div class="tarot-inner"><div class="tarot-back"></div></div></div><div style="color:#9ca3af; font-size:12px; margin-top:10px; margin-bottom:10px;">[ 命运尚未揭晓 ]</div></div>""", unsafe_allow_html=True)
         if st.session_state.step == step_req_major - 1:
             if st.button(f"揭开 {stage_name} 主牌", key=f"btn_m_{stage_name}", use_container_width=True):
-                st.session_state.spread[state_key]["major"] = draw_card(True)
-                st.session_state.step = step_req_major; st.rerun()
-                
+                st.session_state.spread[state_key]["major"] = draw_card(True); st.session_state.step = step_req_major; st.rerun()
     if st.session_state.step >= step_req_major:
-        card = st.session_state.spread[state_key]["major"]
-        data = MAJORS[card["name"]]
-        rev_class = "is-reversed" if card["pos"] == "逆位" else ""
-        badge = "<div class='status-badge rev-badge'>▼ 逆位 Reversed</div>" if card["pos"] == "逆位" else "<div class='status-badge up-badge'>▲ 正位 Upright</div>"
-        meaning = data["rev"] if card["pos"] == "逆位" else data["up"]
-        p_class = "rev-panel" if card["pos"] == "逆位" else ""
-        
-        st.markdown(f"""
-        <div class="card-slot">
-            <div class="tarot-frame {rev_class}">
-                <div class="tarot-inner"><div class="tarot-front"><img src="{data['img_url']}"></div></div>
-            </div>
-            <div class="wiki-panel {p_class}">
-                <div class="wiki-title">{card["name"]}</div>
-                <div style="text-align: center;">{badge}</div>
-                <div class="wiki-row"><span class="wiki-label">元素/占星：</span><span class="wiki-highlight">{data['elem']}</span> / <span style="color:#c084fc; font-weight:bold;">{data['astro']}</span></div>
-                <div class="wiki-row"><span class="wiki-label">关键字：</span><span class="wiki-value">{data['tags']}</span></div>
-                <div class="wiki-row" style="margin-top:8px;"><span class="wiki-label">解析：</span><span class="wiki-value">{meaning}</span></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-        
+        card = st.session_state.spread[state_key]["major"]; data = MAJORS[card["name"]]; rev_class = "is-reversed" if card["pos"] == "逆位" else ""; badge = "<div class='status-badge rev-badge'>▼ 逆位 Reversed</div>" if card["pos"] == "逆位" else "<div class='status-badge up-badge'>▲ 正位 Upright</div>"; meaning = data["rev"] if card["pos"] == "逆位" else data["up"]; p_class = "rev-panel" if card["pos"] == "逆位" else ""
+        st.markdown(f"""<div class="card-slot"><div class="tarot-frame {rev_class}"><div class="tarot-inner"><div class="tarot-front"><img src="{data['img_url']}"></div></div></div><div class="wiki-panel {p_class}"><div class="wiki-title">{card["name"]}</div><div style="text-align: center;">{badge}</div><div class="wiki-row"><span class="wiki-label">元素/占星：</span><span class="wiki-highlight">{data['elem']}</span> / <span style="color:#c084fc; font-weight:bold;">{data['astro']}</span></div><div class="wiki-row"><span class="wiki-label">关键字：</span><span class="wiki-value">{data['tags']}</span></div><div class="wiki-row" style="margin-top:8px;"><span class="wiki-label">解析：</span><span class="wiki-value">{meaning}</span></div></div></div>""", unsafe_allow_html=True)
         if st.session_state.step == step_req_minor - 1:
             if st.button(f"启示 3张辅牌", key=f"btn_min_{stage_name}", use_container_width=True):
-                st.session_state.spread[state_key]["minors"] = [draw_card(False) for _ in range(3)]
-                st.session_state.step = step_req_minor; st.rerun()
-                
+                st.session_state.spread[state_key]["minors"] = [draw_card(False) for _ in range(3)]; st.session_state.step = step_req_minor; st.rerun()
         if st.session_state.step >= step_req_minor:
             minors_html = "<div style='display:flex; flex-direction:column; align-items:center; width:100%;'>"
             for m_card in st.session_state.spread[state_key]["minors"]:
-                m_data = MINORS[m_card["name"]]
-                m_img_transform = "transform: rotate(180deg);" if m_card["pos"] == "逆位" else ""
-                m_badge = "<span style='color:#ef4444;'>[逆位]</span>" if m_card["pos"] == "逆位" else "<span style='color:#22c55e;'>[正位]</span>"
-                m_meaning = m_data["rev"] if m_card["pos"] == "逆位" else m_data["up"]
-                border_color = "#ef4444" if m_card["pos"] == "逆位" else "#6b7280"
+                m_data = MINORS[m_card["name"]]; m_img_transform = "transform: rotate(180deg);" if m_card["pos"] == "逆位" else ""; m_badge = "<span style='color:#ef4444;'>[逆位]</span>" if m_card["pos"] == "逆位" else "<span style='color:#22c55e;'>[正位]</span>"; m_meaning = m_data["rev"] if m_card["pos"] == "逆位" else m_data["up"]; border_color = "#ef4444" if m_card["pos"] == "逆位" else "#6b7280"
                 minors_html += f"<div class='minor-card-container' style='border-top-color: {border_color};'><div style='width:100%; display:flex; justify-content:center;'><div class='minor-img-wrapper'><img src='{m_data['img_url']}' style='{m_img_transform}'></div></div><div class='minor-text'><div style='color:#eab308; font-size:14px; font-weight:bold; margin-bottom:8px; text-align:center;'>{m_card['name']} {m_badge}</div><div style='color:#9ca3af; margin-bottom:8px; text-align:center;'>属性: {m_data['elem']} | 关键字: {m_data['tags']}</div><div style='color:#d1d5db; border-top: 1px dashed #4b5563; padding-top: 10px;'>{m_meaning}</div></div></div>"
             minors_html += "</div>"
             st.markdown(minors_html, unsafe_allow_html=True)
 
 # ==========================================
-# 5. 仪式流程 (图形化标题)
+# 5. 仪式流程
 # ==========================================
 if st.session_state.step == 0:
-    st.markdown("""
-        <div class="header-box">
-            <div class="header-line"></div>
-            <div class="header-text">塔罗占卜</div>
-            <div class="header-line-rev"></div>
-        </div>
-        <div class="hero-subtitle">
-            跨越维度的意识链接已经就绪。<br>
-            请在静默中集中精神，将你内心深处的困惑，铭刻于下方的矩阵之中。
-        </div>
-    """, unsafe_allow_html=True)
-    
+    st.markdown("""<div class="header-box"><div class="header-line"></div><div class="header-text">塔罗占卜</div><div class="header-line-rev"></div></div><div class="hero-subtitle">跨越维度的意识链接已经就绪。<br>请在静默中集中精神，将你内心深处的困惑，铭刻于下方的矩阵之中。</div>""", unsafe_allow_html=True)
     q = st.text_input("", placeholder="例如：我的下一个重大决定会带来什么影响？", label_visibility="collapsed")
     st.markdown("<br>", unsafe_allow_html=True)
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
@@ -260,18 +198,16 @@ if st.session_state.step == 0:
         if st.button("开始连接命运星轨", use_container_width=True):
             if q: st.session_state.q = q; st.session_state.step = 1; st.rerun()
             else: st.warning("空白无法被解读，请写下你的问题。")
-
 if st.session_state.step > 0:
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
     st.markdown(f"<h4 style='text-align:center; color:#eab308; border-bottom:1px dashed #374151; padding-bottom:15px; margin-bottom:30px;'>当前命题：{st.session_state.q}</h4>", unsafe_allow_html=True)
-    
     col_p, col_pr, col_f = st.columns(3)
     with col_p: render_slot("过去起因", 2, 3, "past")
     with col_pr: render_slot("现在状况", 4, 5, "present")
     with col_f: render_slot("未来走向", 6, 7, "future")
 
 # ==========================================
-# 6. 大模型综合解盘 (Prompt 强化问题结合)
+# 6. 大模型综合解盘 (样式优化核心)
 # ==========================================
 if st.session_state.step == 7:
     st.divider()
@@ -282,28 +218,21 @@ if st.session_state.step == 7:
             else:
                 try:
                     client = OpenAI(api_key=api_key, base_url=api_base)
-                    
-                    # 构造严谨的 Prompt 引导 AI 结合具体问题
                     prompt = f"问卜者的问题是：【{st.session_state.q}】。\n"
-                    prompt += "请作为资深塔罗大师，针对问卜者的具体问题进行解牌：\n\n"
-                    for stage, key in zip(["【过去】", "【现在】", "【未来】"], ["past", "present", "future"]):
-                        maj = st.session_state.spread[key]["major"]
-                        mins = st.session_state.spread[key]["minors"]
-                        mins_str = "、".join([f"{m['name']}({m['pos']})" for m in mins])
-                        prompt += f"{stage} 宿命主牌：{maj['name']}({maj['pos']}) | 现实辅牌：{mins_str}\n"
-                    
-                    prompt += "\n解读要求：\n1. 首段必须针对问卜者的问题给出整体基调的洞察。\n2. 深入分析各阶段主牌宿命如何与辅牌细节相互影响。\n3. 最后给出具体、实质性的行动建议。"
-                    
+                    prompt += "请作为资深塔罗大师，针对问卜者的具体问题进行解牌。要求：\n"
+                    prompt += "1. 使用 Markdown 格式。使用二级标题 ## 来分段。\n"
+                    prompt += "2. 段落间要有足够的间距。关键结论使用 **加粗**。\n"
+                    prompt += "3. 第一段先用【卷轴语】定调，放在 Markdown 的引用块中。\n"
+                    for stage, key in zip(["过去起因", "现在状况", "未来走向"], ["past", "present", "future"]):
+                        maj = st.session_state.spread[key]["major"]; mins = st.session_state.spread[key]["minors"]; mins_str = "、".join([f"{m['name']}({m['pos']})" for m in mins])
+                        prompt += f"## {stage}\n宿命主牌：{maj['name']}({maj['pos']}) | 现实辅牌：{mins_str}\n"
+                    prompt += "## 最终建议\n给出针对问题的实质建议。"
                     with st.spinner(f"正在建立精神连接..."):
-                        res = client.chat.completions.create(
-                            model=api_model,
-                            messages=[{"role": "system", "content": f"你是一位精通神秘学的塔罗大师。问卜者的问题是：{st.session_state.q}"}, {"role": "user", "content": prompt}],
-                            temperature=0.7
-                        )
+                        res = client.chat.completions.create(model=api_model, messages=[{"role": "system", "content": f"你是一位精通神秘学的塔罗大师。你的解读必须结构分明，排版优美。"}, {"role": "user", "content": prompt}], temperature=0.7)
                         st.success("解析完毕：")
-                        st.markdown(f"<div style='background:rgba(17, 24, 39, 0.8); backdrop-filter: blur(5px); padding:20px; border-radius:8px; border:1px solid #374151; text-align: left;'>{res.choices[0].message.content}</div>", unsafe_allow_html=True)
+                        # 使用自定义容器渲染内容
+                        st.markdown(f"<div class='ai-response-container'>{res.choices[0].message.content}</div>", unsafe_allow_html=True)
                 except Exception as e: st.error(f"接口调用失败。错误详情：{e}")
-            
     st.markdown("<br>", unsafe_allow_html=True)
     col_r1, col_r2, col_r3 = st.columns([1, 1, 1])
     with col_r2:
