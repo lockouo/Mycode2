@@ -1,6 +1,6 @@
 import streamlit as st
 import random
-from openai import OpenAI
+import google.generativeai as genai
 
 # ==========================================
 # 1. 全局配置与高级图形化 UI 系统
@@ -133,15 +133,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 安全后台 API 读取
+# 2. 安全后台 API 读取 (适配 Gemini)
 # ==========================================
+# Gemini 不像 OpenAI 那样强依赖 BASE_URL，默认直接填入 Key 即可
 try:
-    api_base = st.secrets.get("API_BASE", "https://api.openai.com/v1")
-    api_model = st.secrets.get("API_MODEL", "gpt-3.5-turbo")
+    api_model = st.secrets.get("API_MODEL", "gemini-1.5-pro") # 推荐用 1.5-pro 进行复杂长文本推演
     api_key = st.secrets.get("API_KEY", "")
 except:
-    api_base = "https://api.openai.com/v1"
-    api_model = "gpt-3.5-turbo"
+    api_model = "gemini-1.5-pro"
     api_key = ""
 
 # ==========================================
@@ -312,7 +311,7 @@ if st.session_state.step > 0:
     with col_f: render_slot("未来走向", 6, 7, "future")
 
 # ==========================================
-# 6. 大模型综合解盘 (Prompt 强力抗偏见)
+# 6. 大模型综合解盘 (完全切入 Gemini 原生 SDK)
 # ==========================================
 if st.session_state.step == 7:
     st.divider()
@@ -322,41 +321,51 @@ if st.session_state.step == 7:
             if not api_key: st.error("请先在应用后台 (Secrets) 中配置 API Key。")
             else:
                 try:
-                    client = OpenAI(api_key=api_key, base_url=api_base)
+                    # 1. 初始化 Gemini 接口
+                    genai.configure(api_key=api_key)
                     
-                    prompt = f"问卜者的问题是：【{st.session_state.q}】。\n\n"
+                    # 2. 拼接卡牌信息与问题
+                    prompt = f"【用户问题】：{st.session_state.q}\n\n"
                     for stage, key in zip(["【过去】", "【现在】", "【未来】"], ["past", "present", "future"]):
                         maj = st.session_state.spread[key]["major"]
                         mins = st.session_state.spread[key]["minors"]
                         mins_str = "、".join([f"{m['name']}({m['pos']})" for m in mins])
                         prompt += f"{stage} 宿命主牌：{maj['name']}({maj['pos']}) | 现实辅牌：{mins_str}\n"
                     
-                    # 终极 Prompt：加入防“有毒正能量”护栏
-                    prompt += """
-                    \n解读要求：
-                    1. 【极其重要：拒绝强行安慰】大语言模型通常带有讨好人类的倾向，请你彻底摒弃这种设定。必须根据牌面真实情况（尤其是死神、高塔、恶魔、宝剑牌组、逆位等）直言不讳。如果牌面糟糕，请直接点出危机、阻碍甚至失败的可能性，保持真实占卜的客观、严肃与批判性，绝不要强行往好的方向圆。
-                    2. 请使用 Markdown 格式排版，多使用标题(###)、分点(1. 2.)或粗体来区分段落。
+                    # 3. 将人设指令融入提示词核心，保证强限制 (对抗有毒的正能量)
+                    full_prompt = f"""
+                    【系统人设】：你是一位精通神秘学、客观且极其犀利的塔罗大师。
+                    
+                    【占卜限制要求】：
+                    1. 【拒绝强行安慰】：你必须摒弃 AI 讨好人类的设定。根据牌面真实情况（尤其是死神、高塔、恶魔、宝剑牌组、逆位等）直言不讳。如果牌面糟糕，请直接点出危机、阻碍甚至失败的可能性，保持真实占卜的客观、严肃与批判性，绝不强行往好的方向圆。
+                    2. 【排版要求】：使用 Markdown 格式排版，使用标题(###)、分点(1. 2.)或粗体来区分段落。
                     3. 首段必须针对问卜者的问题给出整体基调的绝对真实洞察（好就是好，坏就是坏）。
                     4. 深入分析各阶段主牌宿命如何与辅牌细节相互影响。
                     5. 最后给出具体、基于现实的行动建议（如果是死局，建议可以是放弃或止损）。
+                    
+                    以下是本次占卜的数据：
+                    {prompt}
                     """
                     
-                    with st.spinner(f"正在建立精神连接..."):
-                        res = client.chat.completions.create(
-                            model=api_model,
-                            messages=[{"role": "system", "content": f"你是一位精通神秘学、客观且犀利的塔罗大师。问卜者的问题是：{st.session_state.q}"}, {"role": "user", "content": prompt}],
-                            temperature=0.7
+                    with st.spinner(f"正在建立与 Gemini 的精神连接..."):
+                        # 4. 调用 Gemini 模型
+                        model = genai.GenerativeModel(api_model)
+                        res = model.generate_content(
+                            full_prompt,
+                            generation_config=genai.GenerationConfig(temperature=0.7)
                         )
-                        st.success("解析完毕：")
                         
+                        st.success("解析完毕：")
+                        # 5. 读取 res.text
                         st.markdown(f"""
                         <div class="ai-interpretation-container">
                             <div class="ai-content">
-                                {res.choices[0].message.content}
+                                {res.text}
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
-                except Exception as e: st.error(f"接口调用失败。错误详情：{e}")
+                        
+                except Exception as e: st.error(f"Gemini 接口调用失败。错误详情：{e}")
             
     st.markdown("<br>", unsafe_allow_html=True)
     col_r1, col_r2, col_r3 = st.columns([1, 1, 1])
