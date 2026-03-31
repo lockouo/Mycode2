@@ -94,7 +94,7 @@ st.markdown("""
         margin: 0 auto 40px auto; line-height: 1.8; letter-spacing: 1px;
     }
 
-    /* AI 解析区域：自然排布，绝无违和滚动条 */
+    /* AI 解析区域：防止嵌套列表导致排版过窄 */
     .ai-interpretation-container {
         background: linear-gradient(180deg, rgba(26, 28, 41, 0.9) 0%, rgba(9, 10, 15, 0.95) 100%);
         backdrop-filter: blur(8px);
@@ -115,10 +115,12 @@ st.markdown("""
         text-align: justify;
         letter-spacing: 0.5px;
     }
-    /* AI 输出的 Markdown 样式细调：确保标题和列表排版优雅 */
+    
     .ai-content p { margin-bottom: 18px; }
     .ai-content h1, .ai-content h2, .ai-content h3 { color: #eab308 !important; margin-top: 30px; margin-bottom: 15px; text-align: left !important; font-weight: bold; text-shadow: none; border-bottom: 1px solid rgba(234, 179, 8, 0.1); padding-bottom: 5px; }
+    /* 控制列表缩进，防止手机端挤成一长条 */
     .ai-content ul, .ai-content ol { margin-bottom: 18px; padding-left: 20px; }
+    .ai-content ul ul, .ai-content ol ol { padding-left: 15px; margin-top: 5px; } 
     .ai-content li { margin-bottom: 8px; }
     .ai-content strong { color: #f3f4f6; font-weight: bold; }
 </style>
@@ -301,7 +303,7 @@ if st.session_state.step > 0:
     with col_f: render_slot("未来走向", 6, 7, "future")
 
 # ==========================================
-# 6. 大模型综合解盘 (彻底切回 Google Generative AI)
+# 6. 大模型综合解盘 (强力抗嵌套与背书)
 # ==========================================
 if st.session_state.step == 7:
     st.divider()
@@ -311,10 +313,9 @@ if st.session_state.step == 7:
             if not api_key: st.error("请先在应用后台 (Secrets) 中配置 API Key。")
             else:
                 try:
-                    # 1. 使用原生的 genai 配置
+                    # 使用原生的 genai 配置
                     genai.configure(api_key=api_key)
                     
-                    # 2. 拼接卡牌信息与问题
                     prompt = f"【问卜者的问题】：{st.session_state.q}\n\n"
                     for stage, key in zip(["【过去】", "【现在】", "【未来】"], ["past", "present", "future"]):
                         maj = st.session_state.spread[key]["major"]
@@ -322,23 +323,20 @@ if st.session_state.step == 7:
                         mins_str = "、".join([f"{m['name']}({m['pos']})" for m in mins])
                         prompt += f"{stage} 宿命主牌：{maj['name']}({maj['pos']}) | 现实辅牌：{mins_str}\n"
                     
-                    # 3. 深度解读指令 (结合前面确认好的排版与严苛要求)
                     full_prompt = f"""
-                    【系统人设】：你是一位精通神秘学的塔罗解读师，你的任务是客观、严肃、深刻地解读命运的映射，拒绝强行乐观。
+                    【系统人设】：你是一位精通神秘学、客观且犀利的塔罗大师，负责对下方的牌阵进行实战解盘。
                     
-                    【占卜限制要求】：
-                    1. 【拒绝强行安慰】：你必须摒弃 AI 讨好人类的设定。根据牌面真实情况直言不讳。如果牌面糟糕，请直接点出危机、阻碍甚至失败的可能性，保持真实占卜的客观、严肃与批判性，绝不强行往好的方向圆。
-                    2. 【排版要求】：使用 Markdown 格式排版，多使用标题(###)、分点(1. 2.)或粗体来区分段落，拒绝说人话（即不要强行圆吉、拒绝有毒的正能量鸡汤，若凶直接说凶，拒绝拖泥带水）。
-                    3. 首段必须针对问卜者的问题给出整体基调的绝对真实洞察（好就是好，坏就是坏）。
-                    4. 深入分析各阶段主牌宿命如何与辅牌细节相互影响。
-                    5. 最后给出具体、基于现实的行动建议（如果是死局，建议可以是放弃或止损）。
+                    【占卜限制要求 - 极度重要】：
+                    1. 【跳过基础解释】：网页上已经展示了单张牌的基础含义，你**绝对不要**在回复中像背书一样重复单张牌的关键词和字面意思。
+                    2. 【深度综合解阵】：直接结合问卜者的具体问题，分析每个阶段的主牌与三张辅牌是如何产生“化学反应”的（辅牌是加强了主牌，还是构成了阻碍？）。
+                    3. 【排版防变形】：使用 Markdown 排版，允许使用标题(###)和单层列表。**严禁使用多层嵌套的子列表(如列表里套列表)**，以防止在手机端排版挤成一长条。尽量使用平铺直叙的干练段落。
+                    4. 【拒绝强行安慰】：根据牌面真实情况直言不讳。若为凶兆，直言危机与失败可能；若逢死局，直接劝其放弃或止损。绝对不要强行灌鸡汤。
                     
                     以下是本次占卜的数据：
                     {prompt}
                     """
                     
                     with st.spinner(f"正在建立精神连接..."):
-                        # 4. 调用 Gemini 模型
                         model = genai.GenerativeModel(api_model)
                         res = model.generate_content(
                             full_prompt,
@@ -346,7 +344,6 @@ if st.session_state.step == 7:
                         )
                         
                         st.success("解析完毕：")
-                        # 5. 渲染读取结果 (保留高级 UI 面板，自适应高度)
                         st.markdown(f"""
                         <div class="ai-interpretation-container">
                             <div class="ai-content">
