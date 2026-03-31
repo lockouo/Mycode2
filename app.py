@@ -75,6 +75,11 @@ st.markdown("""
     .up-badge { background: rgba(34, 197, 94, 0.1); color: #4ade80; border: 1px solid #22c55e; }
     .rev-badge { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid #ef4444; }
     
+    .wiki-row { margin-bottom: 4px; }
+    .wiki-label { color: #9ca3af; font-weight: bold; }
+    .wiki-value { color: #d1d5db; }
+    .wiki-highlight { color: #eab308; font-weight: bold;}
+    
     .minor-card-container {
         display: flex; flex-direction: column; align-items: center; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(5px);
         border-radius: 8px; padding: 15px; margin-bottom: 15px; border-top: 3px solid #6b7280;
@@ -89,58 +94,65 @@ st.markdown("""
         margin: 0 auto 40px auto; line-height: 1.8; letter-spacing: 1px;
     }
 
-    /* AI 解析区域优化样式 */
+    /* 【全新优化】：带有内部滚动条的“羊皮卷”神谕解析容器 */
     .ai-interpretation-container {
-        background: linear-gradient(180deg, rgba(26, 28, 41, 0.9) 0%, rgba(9, 10, 15, 0.95) 100%);
+        background: linear-gradient(180deg, rgba(17, 24, 39, 0.8) 0%, rgba(9, 10, 15, 0.95) 100%);
+        backdrop-filter: blur(8px);
         border: 1px solid rgba(234, 179, 8, 0.3);
-        border-top: 4px solid #eab308;
+        border-top: 3px solid #eab308;
         border-radius: 12px;
-        padding: 40px;
-        margin: 40px auto;
-        max-width: 900px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+        padding: 35px 40px 25px 40px;
+        margin: 20px auto 40px auto;
+        max-width: 800px;
+        max-height: 380px; /* 锁死最大高度，拒绝无限拉长 */
+        overflow-y: auto;  /* 开启内部优雅滚动 */
+        box-shadow: 0 20px 50px rgba(0,0,0,0.8);
         position: relative;
     }
+    /* 定制神秘学金色滚动条 */
+    .ai-interpretation-container::-webkit-scrollbar { width: 6px; }
+    .ai-interpretation-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 4px; }
+    .ai-interpretation-container::-webkit-scrollbar-thumb { background: rgba(234, 179, 8, 0.5); border-radius: 4px; }
+    
     .ai-interpretation-container::before {
-        content: '✍️';
+        content: '👁️‍🗨️ 神 谕';
         position: absolute;
-        top: -20px;
+        top: -15px;
         left: 50%;
         transform: translateX(-50%);
         background: #090a10;
-        padding: 0 15px;
-        font-size: 24px;
+        padding: 4px 20px;
+        font-size: 14px;
+        font-weight: bold;
+        color: #eab308;
+        letter-spacing: 4px;
+        border: 1px solid rgba(234, 179, 8, 0.4);
+        border-radius: 20px;
+        box-shadow: 0 0 10px rgba(234, 179, 8, 0.2);
     }
     .ai-content {
-        color: #e0e0e0;
-        line-height: 1.85;
-        font-size: 1.1rem;
+        color: #d1d5db;
+        line-height: 2.2;
+        font-size: 1.05rem;
         text-align: justify;
-        letter-spacing: 0.5px;
+        letter-spacing: 1px;
     }
-    .ai-content h2, .ai-content h3 {
-        color: #eab308 !important;
-        margin-top: 30px;
-        margin-bottom: 15px;
-        text-align: left !important;
-        border-bottom: 1px solid rgba(234, 179, 8, 0.2);
-        padding-bottom: 5px;
-    }
+    /* 首行缩进，消除Markdown感，增加文学感 */
     .ai-content p {
         margin-bottom: 20px;
+        text-indent: 2em; 
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 安全后台 API 读取 (适配 Gemini)
+# 2. 安全后台 API 读取
 # ==========================================
-# Gemini 不像 OpenAI 那样强依赖 BASE_URL，默认直接填入 Key 即可
 try:
-    api_model = st.secrets.get("API_MODEL", "gemini-1.5-pro") # 推荐用 1.5-pro 进行复杂长文本推演
+    api_model = st.secrets.get("API_MODEL", "gemini-2.5-flash")
     api_key = st.secrets.get("API_KEY", "")
 except:
-    api_model = "gemini-1.5-pro"
+    api_model = "gemini-2.5-flash"
     api_key = ""
 
 # ==========================================
@@ -311,7 +323,7 @@ if st.session_state.step > 0:
     with col_f: render_slot("未来走向", 6, 7, "future")
 
 # ==========================================
-# 6. 大模型综合解盘 (完全切入 Gemini 原生 SDK)
+# 6. 大模型综合解盘 (神谕级抗 AI 排版与约束)
 # ==========================================
 if st.session_state.step == 7:
     st.divider()
@@ -321,42 +333,41 @@ if st.session_state.step == 7:
             if not api_key: st.error("请先在应用后台 (Secrets) 中配置 API Key。")
             else:
                 try:
-                    # 1. 初始化 Gemini 接口
                     genai.configure(api_key=api_key)
                     
-                    # 2. 拼接卡牌信息与问题
-                    prompt = f"【用户问题】：{st.session_state.q}\n\n"
+                    prompt = f"【问卜者的问题】：{st.session_state.q}\n\n"
                     for stage, key in zip(["【过去】", "【现在】", "【未来】"], ["past", "present", "future"]):
                         maj = st.session_state.spread[key]["major"]
                         mins = st.session_state.spread[key]["minors"]
                         mins_str = "、".join([f"{m['name']}({m['pos']})" for m in mins])
                         prompt += f"{stage} 宿命主牌：{maj['name']}({maj['pos']}) | 现实辅牌：{mins_str}\n"
                     
-                    # 3. 将人设指令融入提示词核心，保证强限制 (对抗有毒的正能量)
+                    # 【核心修正】：极力压制 AI 八股文排版，强迫输出凝练的神谕散文
                     full_prompt = f"""
-                    【系统人设】：你是一位精通神秘学、客观且极其犀利的塔罗大师。
+                    【系统人设】：你是一位避世隐居的塔罗大师，说话极其精炼、一针见血、富有诗意与神谕感。绝对不使用“首先、其次、总之、总体来说、在这张牌中”这种AI公文套话。
                     
                     【占卜限制要求】：
-                    1. 【拒绝强行安慰】：你必须摒弃 AI 讨好人类的设定。根据牌面真实情况（尤其是死神、高塔、恶魔、宝剑牌组、逆位等）直言不讳。如果牌面糟糕，请直接点出危机、阻碍甚至失败的可能性，保持真实占卜的客观、严肃与批判性，绝不强行往好的方向圆。
-                    2. 【排版要求】：使用 Markdown 格式排版，使用标题(###)、分点(1. 2.)或粗体来区分段落。
-                    3. 首段必须针对问卜者的问题给出整体基调的绝对真实洞察（好就是好，坏就是坏）。
-                    4. 深入分析各阶段主牌宿命如何与辅牌细节相互影响。
-                    5. 最后给出具体、基于现实的行动建议（如果是死局，建议可以是放弃或止损）。
+                    1. 【排版极度克制】：绝对禁止使用 `###` 标题！绝对禁止使用 `1. 2. 3.` 列表和加粗符号 `**`！像写一封古老的预言信一样，只输出三段纯文本散文。
+                    2. 【字数极度克制】：全文总计绝对不要超过 300 字！
+                    3. 【三段式结构】：
+                       - 第一段（定调）：不废话，一语道破问卜者当下的核心困局或机遇。
+                       - 第二段（解阵）：将过去、现在、未来的牌面意象融合，用极具画面的语言描绘命运的走向，拒绝机械罗列单张牌名。
+                       - 第三段（箴言）：一句话的冷酷或慈悲的建议（若遇凶局，直言断臂求生；若遇吉局，告诫暗流涌动）。
+                    4. 【绝对真实】：保持塔罗的严肃与批判性，绝不强行灌鸡汤圆场。
                     
-                    以下是本次占卜的数据：
+                    以下是本次命运星轨的映射数据：
                     {prompt}
                     """
                     
-                    with st.spinner(f"正在建立与 Gemini 的精神连接..."):
-                        # 4. 调用 Gemini 模型
+                    with st.spinner(f"正在建立精神连接..."):
                         model = genai.GenerativeModel(api_model)
                         res = model.generate_content(
                             full_prompt,
-                            generation_config=genai.GenerationConfig(temperature=0.7)
+                            generation_config=genai.GenerationConfig(temperature=0.8)
                         )
                         
-                        st.success("解析完毕：")
-                        # 5. 读取 res.text
+                        st.success("命运已被揭示：")
+                        # 将解析文字包裹在带有定制滚动条和 max-height 的美化容器中
                         st.markdown(f"""
                         <div class="ai-interpretation-container">
                             <div class="ai-content">
@@ -365,7 +376,7 @@ if st.session_state.step == 7:
                         </div>
                         """, unsafe_allow_html=True)
                         
-                except Exception as e: st.error(f"Gemini 接口调用失败。错误详情：{e}")
+                except Exception as e: st.error(f"接口调用失败。错误详情：{e}")
             
     st.markdown("<br>", unsafe_allow_html=True)
     col_r1, col_r2, col_r3 = st.columns([1, 1, 1])
