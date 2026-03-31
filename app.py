@@ -1,6 +1,6 @@
 import streamlit as st
 import random
-from openai import OpenAI
+import google.generativeai as genai
 
 # ==========================================
 # 1. 全局配置与沉浸式 UI 系统 (强化对齐与图形化艺术标题)
@@ -78,7 +78,7 @@ st.markdown("""
     .minor-img-wrapper img { width: 100%; border-radius: 4px; border: 1px solid #4b5563; }
     .minor-text { width: 100%; font-size: 13px; line-height: 1.5; }
 
-    /* 开屏图形化艺术标题标题 */
+    /* 开屏图形化艺术标题 */
     .header-box {
         display: flex; align-items: center; justify-content: center;
         margin-top: 50px; margin-bottom: 40px;
@@ -94,7 +94,7 @@ st.markdown("""
         margin: 0 auto 40px auto; line-height: 1.8; letter-spacing: 1px;
     }
 
-    /* 【终极修复 2】：AI 解析区域移除 max-height 限制，拒绝机械排版 */
+    /* AI 解析区域：自然排布，绝无违和滚动条 */
     .ai-interpretation-container {
         background: linear-gradient(180deg, rgba(26, 28, 41, 0.9) 0%, rgba(9, 10, 15, 0.95) 100%);
         backdrop-filter: blur(8px);
@@ -104,8 +104,6 @@ st.markdown("""
         padding: 35px 40px 25px 40px;
         margin: 20px auto 40px auto;
         max-width: 800px;
-        /* max-height: 380px; 彻底移除锁死，不再是歪丑的一长串 */
-        /* overflow-y: auto;  彻底移除滚动条 */
         box-shadow: 0 20px 50px rgba(0,0,0,0.8);
         position: relative;
     }
@@ -127,22 +125,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 安全后台 API 读取 (隐藏前端输入框)
+# 2. 安全后台 API 读取 (正确适配 Gemini)
 # ==========================================
 try:
-    api_base = st.secrets.get("API_BASE", "https://api.openai.com/v1")
-    api_model = st.secrets.get("API_MODEL", "gpt-3.5-turbo")
+    api_model = st.secrets.get("API_MODEL", "gemini-3.1-flash")
     api_key = st.secrets.get("API_KEY", "")
 except:
-    api_base = "https://api.openai.com/v1"
-    api_model = "gpt-3.5-turbo"
+    api_model = "gemini-3.1-flash"
     api_key = ""
 
 # ==========================================
-# 3. 塔罗图鉴数据库
+# 3. 塔罗图鉴数据库 
 # ==========================================
 BASE_IMG_URL = "https://sacred-texts.com/tarot/pkt/img/"
-
 MAJORS_DB = {
     "愚者 (The Fool)": {"astro": "天王星", "elem": "风", "tags": "开始、冒险、天真、潜能、自由", "meaning": "象征着一段新旅程的开始，不计后果地跃入未知，充满无限潜能与乐观精神。"},
     "魔术师 (The Magician)": {"astro": "水星", "elem": "风", "tags": "创造、沟通、行动、资源、掌控", "meaning": "代表将内心理念化为现实的能力，手中握有四大元素的资源，是绝佳的行动与沟通时机。"},
@@ -159,7 +154,7 @@ MAJORS_DB = {
     "倒吊人 (The Hanged Man)": {"astro": "海王星", "elem": "水", "tags": "牺牲、换位思考、暂停、顿悟", "meaning": "通过自愿的牺牲或停滞，换取全新的视角与精神层面的顿悟。是以退为进的智慧。"},
     "死神 (Death)": {"astro": "天蝎座", "elem": "水", "tags": "结束、蜕变、新生、断舍离", "meaning": "并非肉体的死亡，而是旧有模式、关系或阶段的彻底终结，从而为全新的生命腾出空间。"},
     "节制 (Temperance)": {"astro": "射手座", "elem": "火", "tags": "平衡、调和、疗愈、中庸、结合", "meaning": "将截然不同的元素完美融合，达到动态的平衡。代表情绪的稳定、自我疗愈与妥协的艺术。"},
-    "恶魔 (The Devil)": {"astro": "摩羯座", "elem": "土", "tags": "欲望、束缚、物质、成瘾、阴暗面", "meaning": "象征被物质欲望、不良习惯或有害关系所囚禁。 But 这种枷锁往往是自己套上的，唯有觉醒方能解脱。"},
+    "恶魔 (The Devil)": {"astro": "摩羯座", "elem": "土", "tags": "欲望、束缚、物质、成瘾、阴暗面", "meaning": "象征被物质欲望、不良习惯或有害关系所囚禁。但这种枷锁往往是自己套上的，唯有觉醒方能解脱。"},
     "高塔 (The Tower)": {"astro": "火星", "elem": "火", "tags": "突变、毁灭、崩溃、意外的觉醒", "meaning": "建立在虚假基础上的事物被突然且猛烈地摧毁。虽然带来痛苦，但清除了阻碍，是痛苦却必要的觉醒。"},
     "星星 (The Star)": {"astro": "水瓶座", "elem": "风", "tags": "希望、疗愈、灵感、宁静、信仰", "meaning": "经历了高塔的毁灭后，迎来的宁静与希望。代表宇宙的祝福、灵感的涌现与精神的彻底疗愈。"},
     "月亮 (The Moon)": {"astro": "双鱼座", "elem": "水", "tags": "不安、迷茫、潜意识、欺骗、恐惧", "meaning": "深入潜意识的幽暗地带，事物晦暗不明，充满未知的恐惧与幻象。需要极大的直觉力来辨别真伪。"},
@@ -167,7 +162,6 @@ MAJORS_DB = {
     "审判 (Judgement)": {"astro": "冥王星", "elem": "火", "tags": "觉醒、召唤、救赎、总结、重生", "meaning": "听到来自高我的召唤，对过去的业力进行最终清算。代表原谅过去，彻底放下，迎来精神的涅槃。"},
     "世界 (The World)": {"astro": "土星", "elem": "土", "tags": "圆满、达成、完美、旅程终点", "meaning": "愚者旅程的完美终点。代表目标的彻底达成、身心合一的圆满状态，以及准备开启下一个更高维度的循环。"}
 }
-
 suits_info = {"权杖": "wa", "圣杯": "cu", "宝剑": "sw", "星币": "pe"}
 ranks_map = {
     "首牌": {"code": "ac", "desc": "潜能爆发与新契机"}, "二": {"code": "02", "desc": "选择、平衡与规划"}, 
@@ -178,7 +172,6 @@ ranks_map = {
     "侍从": {"code": "pa", "desc": "探索未知与新的消息"}, "骑士": {"code": "kn", "desc": "冲动与行动力爆发"},
     "王后": {"code": "qu", "desc": "内在丰盈与成熟滋养"}, "国王": {"code": "ki", "desc": "建立秩序与外在掌控"}
 }
-
 elem_map = {"权杖": "火", "圣杯": "水", "宝剑": "风", "星币": "土"}
 core_map = {"权杖": "行动与创造", "圣杯": "情感与人际", "宝剑": "思想与沟通", "星币": "物质与现实"}
 
@@ -188,13 +181,11 @@ for i, (name, data) in enumerate(MAJORS_DB.items()):
         "img_url": f"{BASE_IMG_URL}ar{i:02d}.jpg", "tags": data["tags"], "astro": data["astro"], "elem": data["elem"],
         "up": f"{data['meaning']}", "rev": f"警告：{data['meaning']} 能量发生扭曲、过度或遭遇阻碍。需反思。"
     }
-
 MINORS = {}
 for suit, s_code in suits_info.items():
     for rank, r_data in ranks_map.items():
         full_name = f"{suit}{rank}"
         elem = elem_map[suit]
-        
         if full_name == "权杖首牌":
             MINORS["权杖首牌 (Ace Of Wands)"] = {
                 "img_url": f"{BASE_IMG_URL}waac.jpg", "tags": "新行动、创造、机会、启动", "elem": f"{elem}元素",
@@ -222,7 +213,7 @@ def draw_card(is_major):
     return {"name": (st.session_state.deck_m if is_major else st.session_state.deck_min).pop(), "pos": random.choice(["正位", "逆位"])}
 
 def render_slot(stage_name, step_req_major, step_req_minor, state_key):
-    st.markdown(f"<h3 style='color:#f3f4f6;'>✦ {stage_name} ✦</h3>", unsafe_allow_html=True)
+    st.markdown(f"<div class='stage-title'>{stage_name}</div>", unsafe_allow_html=True)
     
     if st.session_state.step < step_req_major:
         st.markdown("""
@@ -272,14 +263,12 @@ def render_slot(stage_name, step_req_major, step_req_minor, state_key):
                 m_badge = "<span style='color:#ef4444;'>[逆位]</span>" if m_card["pos"] == "逆位" else "<span style='color:#22c55e;'>[正位]</span>"
                 m_meaning = m_data["rev"] if m_card["pos"] == "逆位" else m_data["up"]
                 border_color = "#ef4444" if m_card["pos"] == "逆位" else "#6b7280"
-                
                 minors_html += f"<div class='minor-card-container' style='border-top-color: {border_color};'><div style='width:100%; display:flex; justify-content:center;'><div class='minor-img-wrapper'><img src='{m_data['img_url']}' style='{m_img_transform}'></div></div><div class='minor-text'><div style='color:#eab308; font-size:14px; font-weight:bold; margin-bottom:8px; text-align:center;'>{m_card['name']} {m_badge}</div><div style='color:#9ca3af; margin-bottom:8px; text-align:center;'>属性: {m_data['elem']} | 关键字: {m_data['tags']}</div><div style='color:#d1d5db; border-top: 1px dashed #4b5563; padding-top: 10px;'>{m_meaning}</div></div></div>"
-            
             minors_html += "</div>"
             st.markdown(minors_html, unsafe_allow_html=True)
 
 # ==========================================
-# 5. 仪式流程与炫酷开屏
+# 5. 仪式流程
 # ==========================================
 if st.session_state.step == 0:
     st.markdown("""
@@ -296,7 +285,6 @@ if st.session_state.step == 0:
     
     q = st.text_input("", placeholder="例如：我的下一个重大决定会带来什么影响？", label_visibility="collapsed")
     st.markdown("<br>", unsafe_allow_html=True)
-    
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
     with col_btn2:
         if st.button("开始连接命运星轨", use_container_width=True):
@@ -305,7 +293,7 @@ if st.session_state.step == 0:
 
 if st.session_state.step > 0:
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
-    st.markdown(f"<h4 style='text-align:center; color:#eab308; border-bottom:1px dashed #374151; padding-bottom:15px; margin-bottom:30px;'>探讨命题：{st.session_state.q}</h4>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='text-align:center; color:#eab308; border-bottom:1px dashed #374151; padding-bottom:15px; margin-bottom:30px;'>当前命题：{st.session_state.q}</h4>", unsafe_allow_html=True)
     
     col_p, col_pr, col_f = st.columns(3)
     with col_p: render_slot("过去起因", 2, 3, "past")
@@ -313,7 +301,7 @@ if st.session_state.step > 0:
     with col_f: render_slot("未来走向", 6, 7, "future")
 
 # ==========================================
-# 6. 大模型综合解盘 (神谕级抗 AI 偏见)
+# 6. 大模型综合解盘 (彻底切回 Google Generative AI)
 # ==========================================
 if st.session_state.step == 7:
     st.divider()
@@ -323,36 +311,51 @@ if st.session_state.step == 7:
             if not api_key: st.error("请先在应用后台 (Secrets) 中配置 API Key。")
             else:
                 try:
-                    client = OpenAI(api_key=api_key, base_url=api_base)
+                    # 1. 使用原生的 genai 配置
+                    genai.configure(api_key=api_key)
                     
-                    prompt = f"问卜者的问题是：【{st.session_state.q}】。\n"
-                    # 【核心修正】：重新强化提示词人设，彻底拒绝强行圆场，使用 Markdown 排版，不再强制限制字数，恢复深度解读。
-                    prompt += "请作为资深神秘学大师，根据牌面真实情况彻底摒弃讨好倾向进行深刻解读，使用 Markdown 格式排版，多使用标题(###)、分点(1. 2.)或粗体来区分段落，拒绝说人话（即不要强行圆吉、拒绝有毒的正能量鸡汤，若凶直接说凶，拒绝拖泥带水）。：\n\n"
+                    # 2. 拼接卡牌信息与问题
+                    prompt = f"【问卜者的问题】：{st.session_state.q}\n\n"
                     for stage, key in zip(["【过去】", "【现在】", "【未来】"], ["past", "present", "future"]):
                         maj = st.session_state.spread[key]["major"]
                         mins = st.session_state.spread[key]["minors"]
                         mins_str = "、".join([f"{m['name']}({m['pos']})" for m in mins])
                         prompt += f"{stage} 宿命主牌：{maj['name']}({maj['pos']}) | 现实辅牌：{mins_str}\n"
                     
-                    prompt += "\n解读要求：\n1. 首段必须结合牌阵整体，直击问卜者当前核心困境。\n2. 深入分析各阶段主牌宿命如何与辅牌细节支撑或阻碍，排版清晰且深沉，不再绕口令，说实在的话，给出实质性的（甚至是冷酷的）建议。如果是死局，请直接建议其放弃。"
+                    # 3. 深度解读指令 (结合前面确认好的排版与严苛要求)
+                    full_prompt = f"""
+                    【系统人设】：你是一位精通神秘学的塔罗解读师，你的任务是客观、严肃、深刻地解读命运的映射，拒绝强行乐观。
+                    
+                    【占卜限制要求】：
+                    1. 【拒绝强行安慰】：你必须摒弃 AI 讨好人类的设定。根据牌面真实情况直言不讳。如果牌面糟糕，请直接点出危机、阻碍甚至失败的可能性，保持真实占卜的客观、严肃与批判性，绝不强行往好的方向圆。
+                    2. 【排版要求】：使用 Markdown 格式排版，多使用标题(###)、分点(1. 2.)或粗体来区分段落，拒绝说人话（即不要强行圆吉、拒绝有毒的正能量鸡汤，若凶直接说凶，拒绝拖泥带水）。
+                    3. 首段必须针对问卜者的问题给出整体基调的绝对真实洞察（好就是好，坏就是坏）。
+                    4. 深入分析各阶段主牌宿命如何与辅牌细节相互影响。
+                    5. 最后给出具体、基于现实的行动建议（如果是死局，建议可以是放弃或止损）。
+                    
+                    以下是本次占卜的数据：
+                    {prompt}
+                    """
                     
                     with st.spinner(f"正在建立精神连接..."):
-                        res = client.chat.completions.create(
-                            model=api_model,
-                            messages=[{"role": "system", "content": f"你是一位精通神秘学的塔罗解读师，你的任务是客观、严肃、深刻地解读命运的映射，拒绝强行乐观。问卜者的问题是：{st.session_state.q}"}, {"role": "user", "content": prompt}],
-                            temperature=0.7
+                        # 4. 调用 Gemini 模型
+                        model = genai.GenerativeModel(api_model)
+                        res = model.generate_content(
+                            full_prompt,
+                            generation_config=genai.GenerationConfig(temperature=0.7)
                         )
-                        st.success("解析完毕：")
                         
-                        # 核心视觉：移除之前的浮动徽章和文本首行缩进，回归看板样式
+                        st.success("解析完毕：")
+                        # 5. 渲染读取结果 (保留高级 UI 面板，自适应高度)
                         st.markdown(f"""
                         <div class="ai-interpretation-container">
                             <div class="ai-content">
-                                {res.choices[0].message.content}
+                                {res.text}
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
-                except Exception as e: st.error(f"接口调用失败。错误详情：{e}")
+                        
+                except Exception as e: st.error(f"Gemini 接口调用失败。错误详情：{e}")
             
     st.markdown("<br>", unsafe_allow_html=True)
     col_r1, col_r2, col_r3 = st.columns([1, 1, 1])
