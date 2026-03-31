@@ -1,6 +1,7 @@
 import streamlit as st
 import random
 import google.generativeai as genai
+from openai import OpenAI
 
 # ==========================================
 # 1. 全局配置与沉浸式 UI 系统 (强化对齐与图形化艺术标题)
@@ -94,7 +95,7 @@ st.markdown("""
         margin: 0 auto 40px auto; line-height: 1.8; letter-spacing: 1px;
     }
 
-    /* AI 解析区域：防止嵌套列表导致排版过窄 */
+    /* AI 解析区域：自然排布，绝无违和滚动条 */
     .ai-interpretation-container {
         background: linear-gradient(180deg, rgba(26, 28, 41, 0.9) 0%, rgba(9, 10, 15, 0.95) 100%);
         backdrop-filter: blur(8px);
@@ -115,7 +116,6 @@ st.markdown("""
         text-align: justify;
         letter-spacing: 0.5px;
     }
-    
     .ai-content p { margin-bottom: 18px; }
     .ai-content h1, .ai-content h2, .ai-content h3 { color: #eab308 !important; margin-top: 30px; margin-bottom: 15px; text-align: left !important; font-weight: bold; text-shadow: none; border-bottom: 1px solid rgba(234, 179, 8, 0.1); padding-bottom: 5px; }
     /* 控制列表缩进，防止手机端挤成一长条 */
@@ -127,12 +127,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 安全后台 API 读取 (正确适配 Gemini)
+# 2. 安全后台 API 读取 (双引擎配置读取)
 # ==========================================
 try:
+    api_base = st.secrets.get("API_BASE", "https://api.openai.com/v1")
     api_model = st.secrets.get("API_MODEL", "gemini-3.1-flash")
     api_key = st.secrets.get("API_KEY", "")
 except:
+    api_base = "https://api.openai.com/v1"
     api_model = "gemini-3.1-flash"
     api_key = ""
 
@@ -303,7 +305,7 @@ if st.session_state.step > 0:
     with col_f: render_slot("未来走向", 6, 7, "future")
 
 # ==========================================
-# 6. 大模型综合解盘 (强力抗嵌套与背书)
+# 6. 大模型综合解盘 (智能双引擎无缝切换)
 # ==========================================
 if st.session_state.step == 7:
     st.divider()
@@ -313,9 +315,7 @@ if st.session_state.step == 7:
             if not api_key: st.error("请先在应用后台 (Secrets) 中配置 API Key。")
             else:
                 try:
-                    # 使用原生的 genai 配置
-                    genai.configure(api_key=api_key)
-                    
+                    # 1. 拼接卡牌信息与问题 (双引擎通用)
                     prompt = f"【问卜者的问题】：{st.session_state.q}\n\n"
                     for stage, key in zip(["【过去】", "【现在】", "【未来】"], ["past", "present", "future"]):
                         maj = st.session_state.spread[key]["major"]
@@ -323,8 +323,10 @@ if st.session_state.step == 7:
                         mins_str = "、".join([f"{m['name']}({m['pos']})" for m in mins])
                         prompt += f"{stage} 宿命主牌：{maj['name']}({maj['pos']}) | 现实辅牌：{mins_str}\n"
                     
+                    # 2. 统一人设与要求 (双引擎通用)
+                    system_role = "你是一位精通神秘学、客观且犀利的塔罗大师，负责对下方的牌阵进行实战解盘。"
                     full_prompt = f"""
-                    【系统人设】：你是一位精通神秘学、客观且犀利的塔罗大师，负责对下方的牌阵进行实战解盘。
+                    【系统人设】：{system_role}
                     
                     【占卜限制要求 - 极度重要】：
                     1. 【跳过基础解释】：网页上已经展示了单张牌的基础含义，你**绝对不要**在回复中像背书一样重复单张牌的关键词和字面意思。
@@ -336,23 +338,43 @@ if st.session_state.step == 7:
                     {prompt}
                     """
                     
-                    with st.spinner(f"正在建立精神连接..."):
-                        model = genai.GenerativeModel(api_model)
-                        res = model.generate_content(
-                            full_prompt,
-                            generation_config=genai.GenerationConfig(temperature=0.7)
-                        )
+                    with st.spinner(f"正在建立与高维意识的连接..."):
+                        result_text = ""
                         
+                        # 3. 智能路由：根据 API_MODEL 名字自动决定走哪条路线
+                        if "gemini" in api_model.lower():
+                            # 路线 A：Google Gemini 原生路线
+                            genai.configure(api_key=api_key)
+                            model = genai.GenerativeModel(api_model)
+                            res = model.generate_content(
+                                full_prompt,
+                                generation_config=genai.GenerationConfig(temperature=0.7)
+                            )
+                            result_text = res.text
+                        else:
+                            # 路线 B：OpenAI 兼容路线 (支持 DeepSeek 等)
+                            client = OpenAI(api_key=api_key, base_url=api_base)
+                            res = client.chat.completions.create(
+                                model=api_model,
+                                messages=[
+                                    {"role": "system", "content": system_role},
+                                    {"role": "user", "content": full_prompt}
+                                ],
+                                temperature=0.7
+                            )
+                            result_text = res.choices[0].message.content
+                        
+                        # 4. 统一渲染解析结果
                         st.success("解析完毕：")
                         st.markdown(f"""
                         <div class="ai-interpretation-container">
                             <div class="ai-content">
-                                {res.text}
+                                {result_text}
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
                         
-                except Exception as e: st.error(f"Gemini 接口调用失败。错误详情：{e}")
+                except Exception as e: st.error(f"接口调用失败。错误详情：{e}")
             
     st.markdown("<br>", unsafe_allow_html=True)
     col_r1, col_r2, col_r3 = st.columns([1, 1, 1])
