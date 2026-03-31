@@ -1,15 +1,16 @@
 import streamlit as st
 import random
-import google.generativeai as genai
+from openai import OpenAI
 
 # ==========================================
-# 1. 全局配置与高级图形化 UI 系统
+# 1. 全局配置与沉浸式 UI 系统 (强化对齐与图形化艺术标题)
 # ==========================================
+# 彻底关闭侧边栏
 st.set_page_config(page_title="塔罗占卜", layout="wide", initial_sidebar_state="collapsed")
 
 st.markdown("""
 <style>
-    /* 引入深邃星空背景 */
+    /* 引入深邃星空背景，混合暗色遮罩 */
     .stApp { 
         background-color: rgba(9, 10, 15, 0.85); 
         background-image: url('https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1920&auto=format&fit=crop');
@@ -17,37 +18,24 @@ st.markdown("""
         color: #d1d5db; font-family: 'Times New Roman', STSong, serif; 
     }
     
+    /* 彻底隐藏侧边栏的展开按钮，实现纯净全屏 */
     [data-testid="collapsedControl"] { display: none; }
     
-    /* 图形化艺术标题 */
-    .header-box {
-        display: flex; align-items: center; justify-content: center;
-        margin-top: 50px; margin-bottom: 40px;
-    }
-    .header-line { height: 1px; width: 60px; background: linear-gradient(to right, transparent, #eab308); margin: 0 20px; }
-    .header-line-rev { height: 1px; width: 60px; background: linear-gradient(to left, transparent, #eab308); margin: 0 20px; }
-    .header-text { 
-        font-size: 3rem; color: #eab308; text-shadow: 0 0 20px rgba(234, 179, 8, 0.5); 
-        letter-spacing: 12px; font-weight: normal; 
-    }
-
-    /* 绝对对齐：标题与卡槽 */
+    /* 绝对对齐：确保标题和卡槽都在 columns 内绝对垂直中轴线对齐 */
     [data-testid="column"] { display: flex; flex-direction: column; align-items: center; text-align: center; }
-    .stage-title {
-        color: #f3f4f6 !important; font-size: 1.5rem; margin-bottom: 25px;
-        display: flex; align-items: center; justify-content: center; width: 100%;
-    }
-    .stage-title::before, .stage-title::after { content: '✦'; color: #eab308; margin: 0 10px; font-size: 1rem; opacity: 0.7; }
 
-    /* 按钮居中对齐修复 */
-    div.stButton { display: flex !important; justify-content: center !important; width: 100% !important; margin-top: 10px; }
+    /* 绝对物理居中所有按钮 */
+    div.stButton { display: flex !important; justify-content: center !important; width: 100% !important; margin-top: 10px; margin-bottom: 20px; }
     div.stButton > button {
         width: 220px !important; margin: 0 auto !important; 
         background: rgba(0, 0, 0, 0.5); border: 1px solid #eab308; color: #eab308;
         border-radius: 4px; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 1px;
     }
+    div.stButton > button:hover { background: rgba(234, 179, 8, 0.2); box-shadow: 0 0 15px rgba(234, 179, 8, 0.4); border-color: #facc15; color: #facc15; }
 
     .card-slot { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; width: 100%; }
+    
+    /* 塔罗牌实体特效 */
     .tarot-frame { width: 170px; height: 290px; perspective: 1000px; margin-bottom: 15px; }
     .tarot-inner { width: 100%; height: 100%; position: relative; transition: transform 0.8s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; }
     .is-reversed .tarot-inner { transform: rotate(180deg); }
@@ -63,6 +51,7 @@ st.markdown("""
     .tarot-back::after { content: '✧'; color: #eab308; font-size: 45px; opacity: 0.5; }
     .tarot-front img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
     
+    /* 数据看板 (主牌与辅牌) */
     .wiki-panel {
         width: 100%; max-width: 340px; background: rgba(17, 24, 39, 0.7); backdrop-filter: blur(5px);
         border: 1px solid #374151; border-top: 3px solid #eab308; border-radius: 6px;
@@ -88,15 +77,26 @@ st.markdown("""
     .minor-img-wrapper { width: 120px; margin-bottom: 12px; perspective: 500px; box-shadow: 0 5px 15px rgba(0,0,0,0.8); border-radius: 4px;}
     .minor-img-wrapper img { width: 100%; border-radius: 4px; border: 1px solid #4b5563; }
     .minor-text { width: 100%; font-size: 13px; line-height: 1.5; }
-    
+
+    /* 开屏图形化艺术标题标题 */
+    .header-box {
+        display: flex; align-items: center; justify-content: center;
+        margin-top: 50px; margin-bottom: 40px;
+    }
+    .header-line { height: 1px; width: 60px; background: linear-gradient(to right, transparent, #eab308); margin: 0 20px; }
+    .header-line-rev { height: 1px; width: 60px; background: linear-gradient(to left, transparent, #eab308); margin: 0 20px; }
+    .header-text { 
+        font-size: 3rem; color: #eab308; text-shadow: 0 0 20px rgba(234, 179, 8, 0.5); 
+        letter-spacing: 12px; font-weight: normal; 
+    }
     .hero-subtitle {
         color: #9ca3af; font-size: 1.1rem; text-align: center; max-width: 600px; 
         margin: 0 auto 40px auto; line-height: 1.8; letter-spacing: 1px;
     }
 
-    /* 【全新优化】：带有内部滚动条的“羊皮卷”神谕解析容器 */
+    /* 【终极修复 2】：AI 解析区域移除 max-height 限制，拒绝机械排版 */
     .ai-interpretation-container {
-        background: linear-gradient(180deg, rgba(17, 24, 39, 0.8) 0%, rgba(9, 10, 15, 0.95) 100%);
+        background: linear-gradient(180deg, rgba(26, 28, 41, 0.9) 0%, rgba(9, 10, 15, 0.95) 100%);
         backdrop-filter: blur(8px);
         border: 1px solid rgba(234, 179, 8, 0.3);
         border-top: 3px solid #eab308;
@@ -104,55 +104,38 @@ st.markdown("""
         padding: 35px 40px 25px 40px;
         margin: 20px auto 40px auto;
         max-width: 800px;
-        max-height: 380px; /* 锁死最大高度，拒绝无限拉长 */
-        overflow-y: auto;  /* 开启内部优雅滚动 */
+        /* max-height: 380px; 彻底移除锁死，不再是歪丑的一长串 */
+        /* overflow-y: auto;  彻底移除滚动条 */
         box-shadow: 0 20px 50px rgba(0,0,0,0.8);
         position: relative;
     }
-    /* 定制神秘学金色滚动条 */
-    .ai-interpretation-container::-webkit-scrollbar { width: 6px; }
-    .ai-interpretation-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); border-radius: 4px; }
-    .ai-interpretation-container::-webkit-scrollbar-thumb { background: rgba(234, 179, 8, 0.5); border-radius: 4px; }
     
-    .ai-interpretation-container::before {
-        content: '👁️‍🗨️ 神 谕';
-        position: absolute;
-        top: -15px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #090a10;
-        padding: 4px 20px;
-        font-size: 14px;
-        font-weight: bold;
-        color: #eab308;
-        letter-spacing: 4px;
-        border: 1px solid rgba(234, 179, 8, 0.4);
-        border-radius: 20px;
-        box-shadow: 0 0 10px rgba(234, 179, 8, 0.2);
-    }
     .ai-content {
         color: #d1d5db;
-        line-height: 2.2;
+        line-height: 2.0;
         font-size: 1.05rem;
         text-align: justify;
-        letter-spacing: 1px;
+        letter-spacing: 0.5px;
     }
-    /* 首行缩进，消除Markdown感，增加文学感 */
-    .ai-content p {
-        margin-bottom: 20px;
-        text-indent: 2em; 
-    }
+    /* AI 输出的 Markdown 样式细调：确保标题和列表排版优雅 */
+    .ai-content p { margin-bottom: 18px; }
+    .ai-content h1, .ai-content h2, .ai-content h3 { color: #eab308 !important; margin-top: 30px; margin-bottom: 15px; text-align: left !important; font-weight: bold; text-shadow: none; border-bottom: 1px solid rgba(234, 179, 8, 0.1); padding-bottom: 5px; }
+    .ai-content ul, .ai-content ol { margin-bottom: 18px; padding-left: 20px; }
+    .ai-content li { margin-bottom: 8px; }
+    .ai-content strong { color: #f3f4f6; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 安全后台 API 读取
+# 2. 安全后台 API 读取 (隐藏前端输入框)
 # ==========================================
 try:
-    api_model = st.secrets.get("API_MODEL", "gemini-2.5-flash")
+    api_base = st.secrets.get("API_BASE", "https://api.openai.com/v1")
+    api_model = st.secrets.get("API_MODEL", "gpt-3.5-turbo")
     api_key = st.secrets.get("API_KEY", "")
 except:
-    api_model = "gemini-2.5-flash"
+    api_base = "https://api.openai.com/v1"
+    api_model = "gpt-3.5-turbo"
     api_key = ""
 
 # ==========================================
@@ -176,7 +159,7 @@ MAJORS_DB = {
     "倒吊人 (The Hanged Man)": {"astro": "海王星", "elem": "水", "tags": "牺牲、换位思考、暂停、顿悟", "meaning": "通过自愿的牺牲或停滞，换取全新的视角与精神层面的顿悟。是以退为进的智慧。"},
     "死神 (Death)": {"astro": "天蝎座", "elem": "水", "tags": "结束、蜕变、新生、断舍离", "meaning": "并非肉体的死亡，而是旧有模式、关系或阶段的彻底终结，从而为全新的生命腾出空间。"},
     "节制 (Temperance)": {"astro": "射手座", "elem": "火", "tags": "平衡、调和、疗愈、中庸、结合", "meaning": "将截然不同的元素完美融合，达到动态的平衡。代表情绪的稳定、自我疗愈与妥协的艺术。"},
-    "恶魔 (The Devil)": {"astro": "摩羯座", "elem": "土", "tags": "欲望、束缚、物质、成瘾、阴暗面", "meaning": "象征被物质欲望、不良习惯或有害关系所囚禁。但这种枷锁往往是自己套上的，唯有觉醒方能解脱。"},
+    "恶魔 (The Devil)": {"astro": "摩羯座", "elem": "土", "tags": "欲望、束缚、物质、成瘾、阴暗面", "meaning": "象征被物质欲望、不良习惯或有害关系所囚禁。 But 这种枷锁往往是自己套上的，唯有觉醒方能解脱。"},
     "高塔 (The Tower)": {"astro": "火星", "elem": "火", "tags": "突变、毁灭、崩溃、意外的觉醒", "meaning": "建立在虚假基础上的事物被突然且猛烈地摧毁。虽然带来痛苦，但清除了阻碍，是痛苦却必要的觉醒。"},
     "星星 (The Star)": {"astro": "水瓶座", "elem": "风", "tags": "希望、疗愈、灵感、宁静、信仰", "meaning": "经历了高塔的毁灭后，迎来的宁静与希望。代表宇宙的祝福、灵感的涌现与精神的彻底疗愈。"},
     "月亮 (The Moon)": {"astro": "双鱼座", "elem": "水", "tags": "不安、迷茫、潜意识、欺骗、恐惧", "meaning": "深入潜意识的幽暗地带，事物晦暗不明，充满未知的恐惧与幻象。需要极大的直觉力来辨别真伪。"},
@@ -184,6 +167,7 @@ MAJORS_DB = {
     "审判 (Judgement)": {"astro": "冥王星", "elem": "火", "tags": "觉醒、召唤、救赎、总结、重生", "meaning": "听到来自高我的召唤，对过去的业力进行最终清算。代表原谅过去，彻底放下，迎来精神的涅槃。"},
     "世界 (The World)": {"astro": "土星", "elem": "土", "tags": "圆满、达成、完美、旅程终点", "meaning": "愚者旅程的完美终点。代表目标的彻底达成、身心合一的圆满状态，以及准备开启下一个更高维度的循环。"}
 }
+
 suits_info = {"权杖": "wa", "圣杯": "cu", "宝剑": "sw", "星币": "pe"}
 ranks_map = {
     "首牌": {"code": "ac", "desc": "潜能爆发与新契机"}, "二": {"code": "02", "desc": "选择、平衡与规划"}, 
@@ -194,6 +178,7 @@ ranks_map = {
     "侍从": {"code": "pa", "desc": "探索未知与新的消息"}, "骑士": {"code": "kn", "desc": "冲动与行动力爆发"},
     "王后": {"code": "qu", "desc": "内在丰盈与成熟滋养"}, "国王": {"code": "ki", "desc": "建立秩序与外在掌控"}
 }
+
 elem_map = {"权杖": "火", "圣杯": "水", "宝剑": "风", "星币": "土"}
 core_map = {"权杖": "行动与创造", "圣杯": "情感与人际", "宝剑": "思想与沟通", "星币": "物质与现实"}
 
@@ -203,11 +188,13 @@ for i, (name, data) in enumerate(MAJORS_DB.items()):
         "img_url": f"{BASE_IMG_URL}ar{i:02d}.jpg", "tags": data["tags"], "astro": data["astro"], "elem": data["elem"],
         "up": f"{data['meaning']}", "rev": f"警告：{data['meaning']} 能量发生扭曲、过度或遭遇阻碍。需反思。"
     }
+
 MINORS = {}
 for suit, s_code in suits_info.items():
     for rank, r_data in ranks_map.items():
         full_name = f"{suit}{rank}"
         elem = elem_map[suit]
+        
         if full_name == "权杖首牌":
             MINORS["权杖首牌 (Ace Of Wands)"] = {
                 "img_url": f"{BASE_IMG_URL}waac.jpg", "tags": "新行动、创造、机会、启动", "elem": f"{elem}元素",
@@ -235,7 +222,7 @@ def draw_card(is_major):
     return {"name": (st.session_state.deck_m if is_major else st.session_state.deck_min).pop(), "pos": random.choice(["正位", "逆位"])}
 
 def render_slot(stage_name, step_req_major, step_req_minor, state_key):
-    st.markdown(f"<div class='stage-title'>{stage_name}</div>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='color:#f3f4f6;'>✦ {stage_name} ✦</h3>", unsafe_allow_html=True)
     
     if st.session_state.step < step_req_major:
         st.markdown("""
@@ -285,12 +272,14 @@ def render_slot(stage_name, step_req_major, step_req_minor, state_key):
                 m_badge = "<span style='color:#ef4444;'>[逆位]</span>" if m_card["pos"] == "逆位" else "<span style='color:#22c55e;'>[正位]</span>"
                 m_meaning = m_data["rev"] if m_card["pos"] == "逆位" else m_data["up"]
                 border_color = "#ef4444" if m_card["pos"] == "逆位" else "#6b7280"
+                
                 minors_html += f"<div class='minor-card-container' style='border-top-color: {border_color};'><div style='width:100%; display:flex; justify-content:center;'><div class='minor-img-wrapper'><img src='{m_data['img_url']}' style='{m_img_transform}'></div></div><div class='minor-text'><div style='color:#eab308; font-size:14px; font-weight:bold; margin-bottom:8px; text-align:center;'>{m_card['name']} {m_badge}</div><div style='color:#9ca3af; margin-bottom:8px; text-align:center;'>属性: {m_data['elem']} | 关键字: {m_data['tags']}</div><div style='color:#d1d5db; border-top: 1px dashed #4b5563; padding-top: 10px;'>{m_meaning}</div></div></div>"
+            
             minors_html += "</div>"
             st.markdown(minors_html, unsafe_allow_html=True)
 
 # ==========================================
-# 5. 仪式流程
+# 5. 仪式流程与炫酷开屏
 # ==========================================
 if st.session_state.step == 0:
     st.markdown("""
@@ -307,6 +296,7 @@ if st.session_state.step == 0:
     
     q = st.text_input("", placeholder="例如：我的下一个重大决定会带来什么影响？", label_visibility="collapsed")
     st.markdown("<br>", unsafe_allow_html=True)
+    
     col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
     with col_btn2:
         if st.button("开始连接命运星轨", use_container_width=True):
@@ -315,7 +305,7 @@ if st.session_state.step == 0:
 
 if st.session_state.step > 0:
     st.markdown("<div style='margin-top:20px;'></div>", unsafe_allow_html=True)
-    st.markdown(f"<h4 style='text-align:center; color:#eab308; border-bottom:1px dashed #374151; padding-bottom:15px; margin-bottom:30px;'>当前命题：{st.session_state.q}</h4>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='text-align:center; color:#eab308; border-bottom:1px dashed #374151; padding-bottom:15px; margin-bottom:30px;'>探讨命题：{st.session_state.q}</h4>", unsafe_allow_html=True)
     
     col_p, col_pr, col_f = st.columns(3)
     with col_p: render_slot("过去起因", 2, 3, "past")
@@ -323,7 +313,7 @@ if st.session_state.step > 0:
     with col_f: render_slot("未来走向", 6, 7, "future")
 
 # ==========================================
-# 6. 大模型综合解盘 (神谕级抗 AI 排版与约束)
+# 6. 大模型综合解盘 (神谕级抗 AI 偏见)
 # ==========================================
 if st.session_state.step == 7:
     st.divider()
@@ -333,49 +323,35 @@ if st.session_state.step == 7:
             if not api_key: st.error("请先在应用后台 (Secrets) 中配置 API Key。")
             else:
                 try:
-                    genai.configure(api_key=api_key)
+                    client = OpenAI(api_key=api_key, base_url=api_base)
                     
-                    prompt = f"【问卜者的问题】：{st.session_state.q}\n\n"
+                    prompt = f"问卜者的问题是：【{st.session_state.q}】。\n"
+                    # 【核心修正】：重新强化提示词人设，彻底拒绝强行圆场，使用 Markdown 排版，不再强制限制字数，恢复深度解读。
+                    prompt += "请作为资深神秘学大师，根据牌面真实情况彻底摒弃讨好倾向进行深刻解读，使用 Markdown 格式排版，多使用标题(###)、分点(1. 2.)或粗体来区分段落，拒绝说人话（即不要强行圆吉、拒绝有毒的正能量鸡汤，若凶直接说凶，拒绝拖泥带水）。：\n\n"
                     for stage, key in zip(["【过去】", "【现在】", "【未来】"], ["past", "present", "future"]):
                         maj = st.session_state.spread[key]["major"]
                         mins = st.session_state.spread[key]["minors"]
                         mins_str = "、".join([f"{m['name']}({m['pos']})" for m in mins])
                         prompt += f"{stage} 宿命主牌：{maj['name']}({maj['pos']}) | 现实辅牌：{mins_str}\n"
                     
-                    # 【核心修正】：极力压制 AI 八股文排版，强迫输出凝练的神谕散文
-                    full_prompt = f"""
-                    【系统人设】：你是一位避世隐居的塔罗大师，说话极其精炼、一针见血、富有诗意与神谕感。绝对不使用“首先、其次、总之、总体来说、在这张牌中”这种AI公文套话。
-                    
-                    【占卜限制要求】：
-                    1. 【排版极度克制】：绝对禁止使用 `###` 标题！绝对禁止使用 `1. 2. 3.` 列表和加粗符号 `**`！像写一封古老的预言信一样，只输出三段纯文本散文。
-                    2. 【字数极度克制】：全文总计绝对不要超过 300 字！
-                    3. 【三段式结构】：
-                       - 第一段（定调）：不废话，一语道破问卜者当下的核心困局或机遇。
-                       - 第二段（解阵）：将过去、现在、未来的牌面意象融合，用极具画面的语言描绘命运的走向，拒绝机械罗列单张牌名。
-                       - 第三段（箴言）：一句话的冷酷或慈悲的建议（若遇凶局，直言断臂求生；若遇吉局，告诫暗流涌动）。
-                    4. 【绝对真实】：保持塔罗的严肃与批判性，绝不强行灌鸡汤圆场。
-                    
-                    以下是本次命运星轨的映射数据：
-                    {prompt}
-                    """
+                    prompt += "\n解读要求：\n1. 首段必须结合牌阵整体，直击问卜者当前核心困境。\n2. 深入分析各阶段主牌宿命如何与辅牌细节支撑或阻碍，排版清晰且深沉，不再绕口令，说实在的话，给出实质性的（甚至是冷酷的）建议。如果是死局，请直接建议其放弃。"
                     
                     with st.spinner(f"正在建立精神连接..."):
-                        model = genai.GenerativeModel(api_model)
-                        res = model.generate_content(
-                            full_prompt,
-                            generation_config=genai.GenerationConfig(temperature=0.8)
+                        res = client.chat.completions.create(
+                            model=api_model,
+                            messages=[{"role": "system", "content": f"你是一位精通神秘学的塔罗解读师，你的任务是客观、严肃、深刻地解读命运的映射，拒绝强行乐观。问卜者的问题是：{st.session_state.q}"}, {"role": "user", "content": prompt}],
+                            temperature=0.7
                         )
+                        st.success("解析完毕：")
                         
-                        st.success("命运已被揭示：")
-                        # 将解析文字包裹在带有定制滚动条和 max-height 的美化容器中
+                        # 核心视觉：移除之前的浮动徽章和文本首行缩进，回归看板样式
                         st.markdown(f"""
                         <div class="ai-interpretation-container">
                             <div class="ai-content">
-                                {res.text}
+                                {res.choices[0].message.content}
                             </div>
                         </div>
                         """, unsafe_allow_html=True)
-                        
                 except Exception as e: st.error(f"接口调用失败。错误详情：{e}")
             
     st.markdown("<br>", unsafe_allow_html=True)
